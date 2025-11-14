@@ -8,6 +8,12 @@
  * @module
  */
 
+import type * as books from "../books.js";
+import type * as inviteCodes from "../inviteCodes.js";
+import type * as messages from "../messages.js";
+import type * as payments from "../payments.js";
+import type * as schedules from "../schedules.js";
+import type * as storage from "../storage.js";
 import type * as users from "../users.js";
 
 import type {
@@ -25,6 +31,12 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  books: typeof books;
+  inviteCodes: typeof inviteCodes;
+  messages: typeof messages;
+  payments: typeof payments;
+  schedules: typeof schedules;
+  storage: typeof storage;
   users: typeof users;
 }>;
 declare const fullApiWithMounts: typeof fullApi;

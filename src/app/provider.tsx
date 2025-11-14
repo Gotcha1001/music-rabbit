@@ -1,53 +1,42 @@
 "use client";
-
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
-
+import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { UserDetailContext } from "@/context/UserDetailContext";
 import { OnSaveContext } from "@/context/OnSaveContext";
+import type { UserDetail } from "@/context/UserDetailContext";
 
 function Provider({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { user } = useUser();
-  const convexUser = useQuery(api.users.get);
-  const createUser = useMutation(api.users.createOrGet);
-
+  const { user, isSignedIn } = useUser();
+  // Local override state that consumers can set via setUserDetail.
+  // We derive the effective userDetail from the query unless overridden.
+  const [overrideUserDetail, setOverrideUserDetail] = useState<
+    UserDetail | undefined
+  >();
   const [onSaveData, setOnSaveData] = useState<unknown>(null);
+  const currentUserDetail = useQuery(api.users.get);
 
-  // Effect to trigger user creation when needed
+  // Derive the effective user detail from Convex query or an explicit override.
+  const userDetail =
+    overrideUserDetail ?? (currentUserDetail as UserDetail | undefined);
+
+  // Reset override when user signs out (defer to avoid synchronous setState)
   useEffect(() => {
-    if (user && convexUser === null) {
-      // Call the mutation - Convex will reactively update convexUser
-      createUser()
-        .then((result) => {
-          console.log("User created:", result);
-        })
-        .catch((error) => {
-          console.error("Error creating user:", error);
-        });
+    if (!isSignedIn && overrideUserDetail !== undefined) {
+      const id = setTimeout(() => setOverrideUserDetail(undefined), 0);
+      return () => clearTimeout(id);
     }
-  }, [user, convexUser, createUser]);
-
-  // Memoize the context value to prevent unnecessary re-renders
-  const userDetailValue = useMemo(
-    () => ({
-      userDetail: convexUser ?? undefined,
-      setUserDetail: () => {
-        console.warn(
-          "setUserDetail is not implemented - user data is managed by Convex"
-        );
-      },
-    }),
-    [convexUser]
-  );
+  }, [isSignedIn, overrideUserDetail]);
 
   return (
-    <UserDetailContext.Provider value={userDetailValue}>
+    <UserDetailContext.Provider
+      value={{ userDetail, setUserDetail: setOverrideUserDetail }}
+    >
       <OnSaveContext.Provider value={{ onSaveData, setOnSaveData }}>
         {children}
       </OnSaveContext.Provider>
