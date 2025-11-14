@@ -10,11 +10,14 @@ export default defineSchema({
       v.literal("student")
     ),
     email: v.string(),
-    instrument: v.optional(v.string()), // For teachers/students
+    instrument: v.optional(v.string()),
+    currentTeacher: v.optional(v.id("users")), // ← student’s preferred teacher
     tokenIdentifier: v.string(),
   })
     .index("by_clerk_id", ["clerkId"])
-    .index("by_token", ["tokenIdentifier"]),
+    .index("by_token", ["tokenIdentifier"])
+    .index("by_role", ["role"])
+    .index("by_role_instrument", ["role", "instrument"]),
 
   schedules: defineTable({
     teacherId: v.id("users"),
@@ -52,5 +55,20 @@ export default defineSchema({
     totalHours: v.number(),
     earnings: v.number(), // Calculated
     deductions: v.number(),
-  }),
+  }).index("by_teacher", ["teacherId"]),
+
+  // NEW: Invite codes table
+  inviteCodes: defineTable({
+    code: v.string(),
+    createdBy: v.string(), // Clerk ID of admin who created it
+    usedCount: v.number(),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    description: v.optional(v.string()),
+    role: v.union(v.literal("teacher"), v.literal("student")), // Role-specific
+  })
+    .index("by_code", ["code"])
+    .index("by_createdBy", ["createdBy"])
+    .index("by_isActive", ["isActive"])
+    .index("by_role", ["role"]),
 });
