@@ -37,6 +37,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
+import { toast } from "sonner";
 
 export default function AdminDashboard() {
   const teachers = (useQuery(api.users.getAllTeachers) as Doc<"users">[]) || [];
@@ -62,6 +63,9 @@ export default function AdminDashboard() {
   const [bookLevel, setBookLevel] = useState("basic");
   const [bookInstrument, setBookInstrument] = useState("");
   const [bookFile, setBookFile] = useState<File | null>(null);
+  const [zoomLink, setZoomLink] = useState("");
+  const [calcMonth, setCalcMonth] = useState("");
+  const calculateMonth = useMutation(api.payments.calculateMonth);
 
   // Instruments list
   const instruments = [
@@ -87,6 +91,7 @@ export default function AdminDashboard() {
         time,
         duration,
         bookId: bookId ? (bookId as Id<"books">) : undefined,
+        zoomLink: zoomLink || undefined,
         completed: false,
         notes: "",
       },
@@ -215,6 +220,14 @@ export default function AdminDashboard() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="col-span-3">
+                <Label>Zoom Link (create in Zoom → paste here)</Label>
+                <Input
+                  placeholder="https://zoom.us/j/..."
+                  value={zoomLink}
+                  onChange={(e) => setZoomLink(e.target.value)}
+                />
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -390,6 +403,7 @@ export default function AdminDashboard() {
                 <TabsList>
                   <TabsTrigger value="teachers">Teachers</TabsTrigger>
                   <TabsTrigger value="students">Students</TabsTrigger>
+                  <TabsTrigger value="payments">Payments</TabsTrigger>
                 </TabsList>
                 <TabsContent value="teachers">
                   <Table>
@@ -425,6 +439,30 @@ export default function AdminDashboard() {
                       ))}
                     </TableBody>
                   </Table>
+                </TabsContent>
+                <TabsContent value="payments">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Calculate Monthly Payments</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="2025-11"
+                          value={calcMonth}
+                          onChange={(e) => setCalcMonth(e.target.value)}
+                        />
+                        <Button
+                          onClick={async () => {
+                            await calculateMonth({ month: calcMonth });
+                            toast("Payments calculated!");
+                          }}
+                        >
+                          Calculate
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
                 <TabsContent value="students">
                   <Table>
