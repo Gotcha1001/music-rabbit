@@ -48,8 +48,17 @@ export const addLesson = mutation({
       if (!schedule) throw new Error("Failed to create schedule");
     }
 
+    // Generate unique lessonId (simple method; consider nanoid if installed)
+    const lessonId =
+      Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+    const newLesson = {
+      ...args.lesson,
+      lessonId,
+    };
+
     await ctx.db.patch(schedule._id, {
-      lessons: [...schedule.lessons, args.lesson],
+      lessons: [...schedule.lessons, newLesson],
     });
   },
 });
@@ -58,9 +67,9 @@ export const getByStudent = query({
   args: { studentId: v.id("users") },
   handler: async (ctx, { studentId }) => {
     const allSchedules = await ctx.db.query("schedules").collect();
-
     const lessons: Array<{
       scheduleId: Id<"schedules">;
+      lessonId: string;
       date: string;
       time: string;
       duration: number;
@@ -70,12 +79,12 @@ export const getByStudent = query({
       completed: boolean;
       notes?: string;
     }> = [];
-
     for (const sched of allSchedules) {
       for (const lesson of sched.lessons) {
         if (lesson.studentId === studentId) {
           lessons.push({
             scheduleId: sched._id,
+            lessonId: lesson.lessonId,
             date: sched.date,
             time: lesson.time,
             duration: lesson.duration,
@@ -88,12 +97,10 @@ export const getByStudent = query({
         }
       }
     }
-
     // newest first
     lessons.sort((a, b) =>
       `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
     );
-
     return lessons;
   },
 });
@@ -112,22 +119,20 @@ export const getByTeacher = query({
 export const updateLesson = mutation({
   args: {
     scheduleId: v.id("schedules"),
-    lessonIndex: v.number(),
+    lessonId: v.string(),
     updates: v.object({
       zoomLink: v.optional(v.string()),
       completed: v.optional(v.boolean()),
       notes: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, { scheduleId, lessonIndex, updates }) => {
+  handler: async (ctx, { scheduleId, lessonId, updates }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
-
     const teacher = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .first();
-
     if (!teacher || teacher.role !== "teacher")
       throw new Error("Not a teacher");
 
@@ -135,81 +140,23 @@ export const updateLesson = mutation({
     if (!schedule || schedule.teacherId !== teacher._id)
       throw new Error("Not your schedule");
 
+    const index = schedule.lessons.findIndex((l) => l.lessonId === lessonId);
+    if (index === -1) throw new Error("Lesson not found");
+
     const lessons = [...schedule.lessons];
-    lessons[lessonIndex] = { ...lessons[lessonIndex], ...updates };
+    lessons[index] = { ...lessons[index], ...updates };
 
     await ctx.db.patch(scheduleId, { lessons });
   },
 });
-import { defineSchema, defineTable } from "convex/server";
 
-export default defineSchema({
-  users: defineTable({
-    clerkId: v.string(),
-    role: v.union(
-      v.literal("admin"),
-      v.literal("teacher"),
-      v.literal("student")
-    ),
-    email: v.string(),
-    instrument: v.optional(v.string()),
-    currentTeacher: v.optional(v.id("users")), // ← student’s preferred teacher
-    tokenIdentifier: v.string(),
-  })
-    .index("by_clerk_id", ["clerkId"])
-    .index("by_token", ["tokenIdentifier"])
-    .index("by_role", ["role"])
-    .index("by_role_instrument", ["role", "instrument"]),
-
-  schedules: defineTable({
-    teacherId: v.id("users"),
-    date: v.string(), // YYYY-MM-DD
-    lessons: v.array(
-      v.object({
-        studentId: v.id("users"),
-        time: v.string(), // HH:MM
-        duration: v.number(), // Minutes
-        bookId: v.optional(v.id("books")),
-        zoomLink: v.optional(v.string()),
-        completed: v.boolean(),
-        notes: v.optional(v.string()),
-      })
-    ),
-  }).index("by_teacher_date", ["teacherId", "date"]),
-
-  books: defineTable({
-    title: v.string(),
-    level: v.string(), // basic/advanced
-    instrument: v.string(),
-    fileId: v.id("_storage"), // Convex storage ID for PDF
-  }),
-
-  messages: defineTable({
-    fromId: v.id("users"),
-    toId: v.id("users"),
-    content: v.string(),
-    timestamp: v.number(),
-  }).index("by_to", ["toId"]),
-
-  payments: defineTable({
-    teacherId: v.id("users"),
-    month: v.string(), // YYYY-MM
-    totalHours: v.number(),
-    earnings: v.number(), // Calculated
-    deductions: v.number(),
-  }),
-  // NEW: Invite codes table
-  inviteCodes: defineTable({
-    code: v.string(),
-    createdBy: v.string(), // Clerk ID of admin who created it
-    usedCount: v.number(),
-    isActive: v.boolean(),
-    createdAt: v.number(),
-    description: v.optional(v.string()),
-    role: v.union(v.literal("teacher"), v.literal("student")), // Role-specific
-  })
-    .index("by_code", ["code"])
-    .index("by_createdBy", ["createdBy"])
-    .index("by_isActive", ["isActive"])
-    .index("by_role", ["role"]),
+export const getLesson = query({
+  args: { scheduleId: v.id("schedules"), lessonId: v.string() },
+  handler: async (ctx, { scheduleId, lessonId }) => {
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) return null;
+    const lesson = schedule.lessons.find((l) => l.lessonId === lessonId);
+    if (!lesson) return null;
+    return { ...lesson, date: schedule.date, teacherId: schedule.teacherId };
+  },
 });

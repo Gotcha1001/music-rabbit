@@ -191,3 +191,24 @@ export const getTeachersByInstrument = query({
       .collect();
   },
 });
+export const setZoomLink = mutation({
+  args: { zoomLink: v.string() },
+  handler: async (ctx, { zoomLink }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user || user.role !== "teacher")
+      throw new Error("Only teachers can set a Zoom link");
+
+    const trimmed = zoomLink.trim();
+    if (!trimmed) throw new Error("Zoom link cannot be empty");
+
+    // Use undefined (not null!) to match v.optional(v.string())
+    await ctx.db.patch(user._id, { zoomLink: trimmed });
+  },
+});

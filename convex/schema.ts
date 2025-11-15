@@ -13,6 +13,7 @@ export default defineSchema({
     instrument: v.optional(v.string()),
     currentTeacher: v.optional(v.id("users")), // ← student’s preferred teacher
     tokenIdentifier: v.string(),
+    zoomLink: v.optional(v.string()),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_token", ["tokenIdentifier"])
@@ -24,6 +25,7 @@ export default defineSchema({
     date: v.string(), // YYYY-MM-DD
     lessons: v.array(
       v.object({
+        lessonId: v.string(), // New: unique string ID for each lesson (generate in mutation, e.g., nanoid or custom)
         studentId: v.id("users"),
         time: v.string(), // HH:MM
         duration: v.number(), // Minutes
@@ -71,4 +73,14 @@ export default defineSchema({
     .index("by_createdBy", ["createdBy"])
     .index("by_isActive", ["isActive"])
     .index("by_role", ["role"]),
+
+  // FIXED: Recordings table (now inside schema)
+  recordings: defineTable({
+    scheduleId: v.id("schedules"), // Parent schedule ID
+    lessonStringId: v.string(), // Matches lesson.lessonId (string) to identify specific lesson
+    teacherId: v.id("users"),
+    recordingUrl: v.string(), // Zoom cloud recording URL
+    timestamp: v.number(),
+    notes: v.optional(v.string()), // Teacher comments on recording
+  }).index("by_teacher", ["teacherId"]),
 });

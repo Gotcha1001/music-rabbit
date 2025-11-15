@@ -12,6 +12,7 @@ import type * as books from "../books.js";
 import type * as inviteCodes from "../inviteCodes.js";
 import type * as messages from "../messages.js";
 import type * as payments from "../payments.js";
+import type * as recordings from "../recordings.js";
 import type * as schedules from "../schedules.js";
 import type * as storage from "../storage.js";
 import type * as users from "../users.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   inviteCodes: typeof inviteCodes;
   messages: typeof messages;
   payments: typeof payments;
+  recordings: typeof recordings;
   schedules: typeof schedules;
   storage: typeof storage;
   users: typeof users;

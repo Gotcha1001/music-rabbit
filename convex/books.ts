@@ -33,3 +33,9 @@ export const getById = query({
     return await ctx.db.get(id);
   },
 });
+export const getUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    return await ctx.storage.getUrl(storageId);
+  },
+});
