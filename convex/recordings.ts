@@ -45,3 +45,68 @@ export const getByTeacher = query({
       .collect();
   },
 });
+
+export const update = mutation({
+  args: {
+    recordingId: v.id("recordings"),
+    recordingUrl: v.string(),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const teacher = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!teacher || teacher.role !== "teacher") {
+      throw new Error("Only teachers can update recordings");
+    }
+
+    const recording = await ctx.db.get(args.recordingId);
+    if (!recording) throw new Error("Recording not found");
+
+    if (recording.teacherId !== teacher._id) {
+      throw new Error("You can only update your own recordings");
+    }
+
+    await ctx.db.patch(args.recordingId, {
+      recordingUrl: args.recordingUrl,
+      notes: args.notes,
+    });
+
+    return { success: true };
+  },
+});
+
+// Delete a recording
+export const remove = mutation({
+  args: {
+    recordingId: v.id("recordings"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const teacher = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!teacher || teacher.role !== "teacher") {
+      throw new Error("Only teachers can delete recordings");
+    }
+
+    const recording = await ctx.db.get(args.recordingId);
+    if (!recording) throw new Error("Recording not found");
+
+    if (recording.teacherId !== teacher._id) {
+      throw new Error("You can only delete your own recordings");
+    }
+
+    await ctx.db.delete(args.recordingId);
+    return { success: true };
+  },
+});

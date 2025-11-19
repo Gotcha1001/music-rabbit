@@ -10,6 +10,8 @@ export default defineSchema({
       v.literal("student")
     ),
     email: v.string(),
+    name: v.optional(v.string()), // ← ADD THIS
+    imageUrl: v.optional(v.string()),
     instrument: v.optional(v.string()),
     currentTeacher: v.optional(v.id("users")), // ← student’s preferred teacher
     tokenIdentifier: v.string(),
@@ -39,10 +41,14 @@ export default defineSchema({
 
   books: defineTable({
     title: v.string(),
-    level: v.string(), // basic/advanced
+    level: v.string(),
     instrument: v.string(),
-    fileId: v.id("_storage"), // Convex storage ID for PDF
-  }),
+    driveFileId: v.string(),
+    driveViewLink: v.string(),
+    driveDownloadLink: v.optional(v.string()),
+    uploadedBy: v.optional(v.id("users")),
+    uploadedAt: v.number(),
+  }).index("by_instrument", ["instrument"]), // Add this index
 
   messages: defineTable({
     fromId: v.id("users"),
