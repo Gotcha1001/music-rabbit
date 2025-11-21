@@ -94,32 +94,23 @@
 //   );
 // }
 
+// app/components/LiveClock.tsx   (or .tsx wherever you keep it)
 "use client";
 
 import { useState, useEffect } from "react";
 import { Clock, Calendar } from "lucide-react";
 import { format } from "date-fns";
 
-export default function LiveClock() {
+function LiveClockInner() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <div
-      className="
-        flex items-center gap-6 px-6 py-4 
-        rounded-xl shadow-lg border border-purple-900/40
-        bg-[radial-gradient(circle_at_top_left,_#1a001f,_#000000)]
-        backdrop-blur-sm
-      "
-    >
+    <div className="flex items-center gap-6 px-6 py-4 rounded-xl shadow-lg border border-purple-900/40 bg-[radial-gradient(circle_at_top_left,_#1a001f,_#000000)] backdrop-blur-sm">
       {/* TIME */}
       <div className="flex items-center gap-3">
         <Clock className="h-6 w-6 text-purple-400 drop-shadow-[0_0_6px_#6b21a8]" />
@@ -133,7 +124,6 @@ export default function LiveClock() {
         </div>
       </div>
 
-      {/* Divider */}
       <div className="h-10 w-px bg-purple-900/60" />
 
       {/* DATE */}
@@ -151,3 +141,24 @@ export default function LiveClock() {
     </div>
   );
 }
+
+// Export a dynamically imported version that skips SSR
+import dynamic from "next/dynamic";
+const LiveClock = dynamic(() => Promise.resolve(LiveClockInner), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center gap-6 px-6 py-4 rounded-xl bg-purple-950/20 border border-purple-900/40">
+      <div className="flex items-center gap-3">
+        <Clock className="h-6 w-6 text-purple-400/50" />
+        <span className="text-xl font-bold text-purple-300/50">––:––:––</span>
+      </div>
+      <div className="h-10 w-px bg-purple-900/60" />
+      <div className="flex items-center gap-3">
+        <Calendar className="h-6 w-6 text-purple-400/50" />
+        <span className="text-xl font-bold text-purple-300/50">Loading...</span>
+      </div>
+    </div>
+  ),
+});
+
+export default LiveClock;
