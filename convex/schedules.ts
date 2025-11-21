@@ -20,6 +20,19 @@ export const addLesson = mutation({
       zoomLink: v.optional(v.string()),
       completed: v.boolean(),
       notes: v.optional(v.string()),
+      status: v.optional(
+        v.union(
+          v.literal("scheduled"),
+          v.literal("calling"),
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("finished_early"),
+          v.literal("no_answer"),
+          v.literal("teacher_late"),
+          v.literal("cancelled")
+        )
+      ),
+      statusNote: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args) => {
@@ -48,14 +61,27 @@ export const addLesson = mutation({
       if (!schedule) throw new Error("Failed to create schedule");
     }
 
-    // Generate unique lessonId (simple method; consider nanoid if installed)
     const lessonId =
       Date.now().toString(36) + Math.random().toString(36).slice(2);
 
     const newLesson = {
       ...args.lesson,
       lessonId,
+      status: args.lesson.status ?? "scheduled",
+      statusNote: args.lesson.statusNote ?? undefined,
     };
+
+    // ADD THIS ENTIRE BLOCK — SYNC BOOK TO STUDENT ON CREATION
+    if (newLesson.bookId) {
+      await ctx.db.patch(newLesson.studentId, {
+        currentBookId: newLesson.bookId,
+      });
+      console.log("Book synced to student on lesson creation:", {
+        studentId: newLesson.studentId,
+        bookId: newLesson.bookId,
+      });
+    }
+    // END OF NEW BLOCK
 
     await ctx.db.patch(schedule._id, {
       lessons: [...schedule.lessons, newLesson],
@@ -78,6 +104,16 @@ export const getByStudent = query({
       zoomLink?: string | undefined;
       completed: boolean;
       notes?: string;
+      status:
+        | "scheduled"
+        | "calling"
+        | "in_progress"
+        | "completed"
+        | "finished_early"
+        | "no_answer"
+        | "teacher_late"
+        | "cancelled";
+      statusNote?: string;
     }> = [];
     for (const sched of allSchedules) {
       for (const lesson of sched.lessons) {
@@ -93,6 +129,8 @@ export const getByStudent = query({
             zoomLink: lesson.zoomLink,
             completed: lesson.completed,
             notes: lesson.notes,
+            status: lesson.status ?? "scheduled", // ← add
+            statusNote: lesson.statusNote ?? undefined, // ← add
           });
         }
       }
@@ -124,15 +162,31 @@ export const updateLesson = mutation({
       zoomLink: v.optional(v.string()),
       completed: v.optional(v.boolean()),
       notes: v.optional(v.string()),
+      status: v.optional(
+        v.union(
+          v.literal("scheduled"),
+          v.literal("calling"),
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("finished_early"),
+          v.literal("no_answer"),
+          v.literal("teacher_late"),
+          v.literal("cancelled")
+        )
+      ),
+      statusNote: v.optional(v.string()),
+      bookId: v.optional(v.id("books")), // ← ADD THIS LINE
     }),
   },
   handler: async (ctx, { scheduleId, lessonId, updates }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthorized");
+
     const teacher = await ctx.db
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .first();
+
     if (!teacher || teacher.role !== "teacher")
       throw new Error("Not a teacher");
 
@@ -140,13 +194,34 @@ export const updateLesson = mutation({
     if (!schedule || schedule.teacherId !== teacher._id)
       throw new Error("Not your schedule");
 
-    const index = schedule.lessons.findIndex((l) => l.lessonId === lessonId);
-    if (index === -1) throw new Error("Lesson not found");
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
 
-    const lessons = [...schedule.lessons];
-    lessons[index] = { ...lessons[index], ...updates };
+    const oldLesson = schedule.lessons[lessonIndex];
+    const newLesson = { ...oldLesson, ...updates };
 
-    await ctx.db.patch(scheduleId, { lessons });
+    // ──────────────────────────────────────────────────────────────
+    // AUTO-SYNC BOOK TO STUDENT PROFILE
+    // ──────────────────────────────────────────────────────────────
+    if (updates.bookId !== undefined) {
+      const studentId = oldLesson.studentId;
+      if (studentId) {
+        await ctx.db.patch(studentId, {
+          currentBookId: updates.bookId || undefined, // null = clear book
+        });
+      }
+    }
+    // ──────────────────────────────────────────────────────────────
+
+    // Update the lesson in the schedule
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons[lessonIndex] = newLesson;
+
+    await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+    return updatedLessons[lessonIndex];
   },
 });
 
@@ -158,5 +233,22 @@ export const getLesson = query({
     const lesson = schedule.lessons.find((l) => l.lessonId === lessonId);
     if (!lesson) return null;
     return { ...lesson, date: schedule.date, teacherId: schedule.teacherId };
+  },
+});
+
+// convex/schedules.ts
+export const deleteLesson = mutation({
+  args: { scheduleId: v.id("schedules"), lessonIndex: v.number() },
+  handler: async (ctx, { scheduleId, lessonIndex }) => {
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    schedule.lessons.splice(lessonIndex, 1);
+
+    if (schedule.lessons.length === 0) {
+      await ctx.db.delete(scheduleId);
+    } else {
+      await ctx.db.patch(scheduleId, { lessons: schedule.lessons });
+    }
   },
 });

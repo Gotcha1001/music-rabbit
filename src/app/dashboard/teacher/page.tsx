@@ -670,6 +670,7 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { motion } from "framer-motion";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { api } from "../../../../convex/_generated/api";
 import Link from "next/link";
@@ -702,6 +703,12 @@ import {
 } from "lucide-react";
 import { RecordingsTab } from "@/app/components/RecordingsTab";
 import LiveClock from "@/app/components/LiveClock";
+import { EarningsSummaryCard } from "@/app/components/EarningsSummaryCard";
+import dynamic from "next/dynamic";
+
+const LiveClocks = dynamic(() => import("@/app/components/LiveClock"), {
+  ssr: false,
+});
 
 type Lesson = {
   lessonId: string;
@@ -750,16 +757,27 @@ export default function TeacherDashboard() {
 
   if (!clerkLoaded || currentUser === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-black via-purple-950 to-black">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+        >
+          <Loader2 className="h-12 w-12 text-purple-400" />
+        </motion.div>
       </div>
     );
   }
 
   if (!currentUser || currentUser.role !== "teacher") {
     return (
-      <div className="p-8 text-center text-red-600">
-        Access denied -- teachers only
+      <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="p-8 text-center text-red-400 bg-red-950/30 border-2 border-red-800/50 rounded-lg"
+        >
+          <p className="text-xl font-serif">Access denied — teachers only</p>
+        </motion.div>
       </div>
     );
   }
@@ -769,113 +787,147 @@ export default function TeacherDashboard() {
   );
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Clock at the top */}
-      <div className="mb-6">
-        <LiveClock />
+    <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black">
+      <div className="container mx-auto p-6 max-w-7xl">
+        {/* Clock at the top */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-6"
+        >
+          <LiveClock />
+        </motion.div>
+
+        <motion.h1
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8 }}
+          className="text-5xl font-bold mb-12 text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-purple-400 to-purple-200 font-serif"
+        >
+          Welcome back, {clerkUser?.firstName || "Teacher"}! 🎵
+        </motion.h1>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <Tabs defaultValue="schedule" className="w-full">
+            <TabsList className="bg-purple-900/30 border border-purple-800/30 mb-8">
+              <TabsTrigger
+                value="schedule"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Schedule
+              </TabsTrigger>
+              <TabsTrigger
+                value="messages"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Messages
+              </TabsTrigger>
+              <TabsTrigger
+                value="payments"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Payments
+              </TabsTrigger>
+              <TabsTrigger
+                value="recordings"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Recordings
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="schedule">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
+                      <Video className="h-7 w-7 text-purple-400" />
+                      Today&apos;s Schedule
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScheduleTable schedules={upcomingSchedules} now={now} />
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
+
+            <TabsContent value="messages">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
+                      <MessageSquare className="h-7 w-7 text-purple-400" />
+                      Messages from HR
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {messages.length === 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center text-purple-400/70 py-12 font-serif italic"
+                      >
+                        No messages yet
+                      </motion.div>
+                    ) : (
+                      messages.map((msg: Doc<"messages">, index: number) => (
+                        <motion.div
+                          key={msg._id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="mb-4 p-4 border border-purple-800/30 rounded-lg bg-purple-900/20 hover:bg-purple-900/40 transition-colors"
+                        >
+                          <div className="text-purple-200 font-serif">
+                            {msg.content}
+                          </div>
+                          <div className="text-sm text-purple-400/60 mt-2 font-serif">
+                            {format(msg.timestamp, "PPP p")}
+                          </div>
+                        </motion.div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
+
+            <TabsContent value="payments">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <EarningsSummaryCard teacherId={currentUser._id} />
+              </motion.div>
+            </TabsContent>
+
+            <TabsContent value="recordings">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <RecordingsTab />
+              </motion.div>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
       </div>
-
-      <h1 className="text-4xl font-bold mb-8">
-        Welcome back, {clerkUser?.firstName || "Teacher"}! 🎵
-      </h1>
-
-      <Tabs defaultValue="schedule">
-        <TabsList>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="recordings">Recordings</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="schedule">
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="h-6 w-6" />
-                Today&apos;s Schedule
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScheduleTable schedules={upcomingSchedules} now={now} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="messages">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-6 w-6" />
-                Messages from HR
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {messages.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No messages yet
-                </p>
-              ) : (
-                messages.map((msg: Doc<"messages">) => (
-                  <div key={msg._id} className="mb-4 p-4 border rounded-lg">
-                    <div className="mb-2">{msg.content}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {format(msg.timestamp, "PPP p")}
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="payments">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-6 w-6" />
-                Earnings
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {payments.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  No payment records yet
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {payments.map((pay: Doc<"payments">) => (
-                    <div
-                      key={pay._id}
-                      className="flex justify-between items-center p-4 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-semibold">{pay.month}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {pay.totalHours} hours taught
-                        </p>
-                        {pay.deductions > 0 && (
-                          <p className="text-sm text-red-600">
-                            Deductions: ${pay.deductions}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-green-600">
-                          ${pay.earnings}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="recordings">
-          <RecordingsTab />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
@@ -883,21 +935,21 @@ export default function TeacherDashboard() {
 // Reusable components
 function StudentName({ id }: { id: Id<"users"> }) {
   const student = useQuery(api.users.getById, { id });
-  return <span>{student?.email ?? "Loading..."}</span>;
+  return (
+    <span className="text-purple-300">{student?.email ?? "Loading..."}</span>
+  );
 }
 
-// UPDATED: Fixed BookTitle component to use Google Drive links
 function BookTitle({ id }: { id?: Id<"books"> }) {
   const book = useQuery(api.books.getById, id ? { id } : "skip");
 
-  if (!id || !book)
-    return <span className="text-muted-foreground">No book</span>;
+  if (!id || !book) return <span className="text-purple-400/50">No book</span>;
 
   return (
     <Button
       variant="link"
       onClick={() => window.open(book.driveViewLink, "_blank")}
-      className="p-0 h-auto flex items-center gap-2"
+      className="p-0 h-auto flex items-center gap-2 text-purple-400 hover:text-purple-300"
     >
       <FileText className="h-4 w-4" />
       {book.title}
@@ -914,67 +966,118 @@ function ScheduleTable({
 }) {
   if (schedules.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        <Video className="h-12 w-12 mx-auto mb-4 opacity-50" />
-        <p className="text-lg">No lessons scheduled</p>
-        <p className="text-sm">Check back later for your upcoming lessons</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center py-12"
+      >
+        <motion.div
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 3, repeat: Infinity }}
+        >
+          <Video className="h-16 w-16 mx-auto mb-4 opacity-40 text-purple-400" />
+        </motion.div>
+        <p className="text-lg text-purple-300 font-serif">
+          No lessons scheduled
+        </p>
+        <p className="text-sm text-purple-400/70 mt-2 font-serif">
+          Check back later for your upcoming lessons
+        </p>
+      </motion.div>
     );
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Date</TableHead>
-          <TableHead>Time</TableHead>
-          <TableHead>Student</TableHead>
-          <TableHead>Duration</TableHead>
-          <TableHead>Book</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {schedules.flatMap((s) =>
-          s.lessons.map((l) => {
-            const startMs = new Date(`${s.date}T${l.time}:00`).getTime();
-            const isActive =
-              startMs <= now && startMs + l.duration * 60 * 1000 > now;
+    <div className="rounded-lg border border-purple-800/30 overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-purple-900/20 border-b border-purple-800/30 hover:bg-purple-900/30">
+            <TableHead className="text-purple-300 font-serif">Date</TableHead>
+            <TableHead className="text-purple-300 font-serif">Time</TableHead>
+            <TableHead className="text-purple-300 font-serif">
+              Student
+            </TableHead>
+            <TableHead className="text-purple-300 font-serif">
+              Duration
+            </TableHead>
+            <TableHead className="text-purple-300 font-serif">Book</TableHead>
+            <TableHead className="text-purple-300 font-serif">Status</TableHead>
+            <TableHead className="text-purple-300 font-serif">
+              Actions
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {schedules.flatMap((s, sIndex) =>
+            s.lessons.map((l, lIndex) => {
+              const startMs = new Date(`${s.date}T${l.time}:00`).getTime();
+              const isActive =
+                startMs <= now && startMs + l.duration * 60 * 1000 > now;
+              const globalIndex = sIndex * 10 + lIndex;
 
-            return (
-              <TableRow key={`${s._id}-${l.lessonId}`}>
-                <TableCell>{format(startMs, "PPP")}</TableCell>
-                <TableCell>{l.time}</TableCell>
-                <TableCell>
-                  <StudentName id={l.studentId} />
-                </TableCell>
-                <TableCell>{l.duration} min</TableCell>
-                <TableCell>
-                  <BookTitle id={l.bookId} />
-                </TableCell>
-                <TableCell>
-                  {l.completed ? (
-                    <Badge variant="secondary">Completed</Badge>
-                  ) : (
-                    <Badge variant={isActive ? "default" : "outline"}>
-                      {isActive ? "In Progress" : "Scheduled"}
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell className="space-x-2">
-                  <Button variant="default" size="sm" asChild>
-                    <Link href={`/dashboard/lesson/${s._id}/${l.lessonId}`}>
-                      <Video className="h-4 w-4 mr-2" />
-                      View Details
-                    </Link>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            );
-          })
-        )}
-      </TableBody>
-    </Table>
+              return (
+                <motion.tr
+                  key={`${s._id}-${l.lessonId}`}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: globalIndex * 0.05 }}
+                  className="border-b border-purple-800/20 hover:bg-purple-900/20 transition-colors"
+                >
+                  <TableCell className="text-purple-200 font-serif">
+                    {format(startMs, "PPP")}
+                  </TableCell>
+                  <TableCell className="text-purple-200 font-serif">
+                    {l.time}
+                  </TableCell>
+                  <TableCell>
+                    <StudentName id={l.studentId} />
+                  </TableCell>
+                  <TableCell className="text-purple-200 font-serif">
+                    {l.duration} min
+                  </TableCell>
+                  <TableCell>
+                    <BookTitle id={l.bookId} />
+                  </TableCell>
+                  <TableCell>
+                    {l.completed ? (
+                      <Badge
+                        variant="secondary"
+                        className="bg-purple-800/50 text-purple-200 border-purple-700/50"
+                      >
+                        Completed
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant={isActive ? "default" : "outline"}
+                        className={
+                          isActive
+                            ? "bg-purple-700 text-purple-100 border-purple-600 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                            : "border-purple-600/50 text-purple-300"
+                        }
+                      >
+                        {isActive ? "In Progress" : "Scheduled"}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      asChild
+                      className="bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                    >
+                      <Link href={`/dashboard/lesson/${s._id}/${l.lessonId}`}>
+                        <Video className="h-4 w-4 mr-2" />
+                        View Details
+                      </Link>
+                    </Button>
+                  </TableCell>
+                </motion.tr>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
