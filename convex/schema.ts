@@ -16,6 +16,7 @@ export default defineSchema({
     currentTeacher: v.optional(v.id("users")), // ← student’s preferred teacher
     tokenIdentifier: v.string(),
     zoomLink: v.optional(v.string()),
+    currentBookId: v.optional(v.id("books")),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_token", ["tokenIdentifier"])
@@ -27,7 +28,7 @@ export default defineSchema({
     date: v.string(), // YYYY-MM-DD
     lessons: v.array(
       v.object({
-        lessonId: v.string(), // New: unique string ID for each lesson (generate in mutation, e.g., nanoid or custom)
+        lessonId: v.string(), // unique string ID
         studentId: v.id("users"),
         time: v.string(), // HH:MM
         duration: v.number(), // Minutes
@@ -35,6 +36,20 @@ export default defineSchema({
         zoomLink: v.optional(v.string()),
         completed: v.boolean(),
         notes: v.optional(v.string()),
+        // ADD THESE TWO NEW FIELDS
+        status: v.optional(
+          v.union(
+            v.literal("scheduled"),
+            v.literal("calling"),
+            v.literal("in_progress"),
+            v.literal("completed"),
+            v.literal("finished_early"),
+            v.literal("no_answer"),
+            v.literal("teacher_late"),
+            v.literal("cancelled")
+          )
+        ),
+        statusNote: v.optional(v.string()),
       })
     ),
   }).index("by_teacher_date", ["teacherId", "date"]),

@@ -6,6 +6,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Doc, Id } from "../../../../convex/_generated/dataModel";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -50,11 +51,16 @@ import {
   ExternalLink,
   Download,
   Trash2,
+  Loader2,
 } from "lucide-react";
 
 import Link from "next/link";
-import MotionWrapperDelay from "@/app/components copy/FramerMotion/MotionWrapperDelay";
 import LiveClock from "@/app/components/LiveClock";
+import dynamic from "next/dynamic";
+
+const LiveClocks = dynamic(() => import("@/app/components/LiveClock"), {
+  ssr: false,
+});
 
 export default function AdminDashboard() {
   const teachers = (useQuery(api.users.getAllTeachers) as Doc<"users">[]) || [];
@@ -82,6 +88,8 @@ export default function AdminDashboard() {
   const [bookFile, setBookFile] = useState<File | null>(null);
   const [zoomLink, setZoomLink] = useState("");
   const [calcMonth, setCalcMonth] = useState("");
+
+  const deleteLesson = useMutation(api.schedules.deleteLesson);
 
   const instruments = [
     "Piano",
@@ -189,527 +197,801 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="container mx-auto p-6 min-h-screen bg-gradient-to-b from-green-50 to-white">
-      <LiveClock />
-      <MotionWrapperDelay
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.5 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
-        variants={{
-          hidden: { opacity: 0, y: 100 },
-          visible: { opacity: 1, y: 0 },
-        }}
-      >
-        <h1 className="text-3xl font-bold text-green-600 mb-8 mt-3">
+    <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black">
+      <div className="container mx-auto p-6 max-w-7xl">
+        {/* Clock at the top */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-6"
+        >
+          <LiveClock />
+        </motion.div>
+
+        <motion.h1
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8 }}
+          className="text-5xl font-bold mb-12 text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-purple-400 to-purple-200 font-serif"
+        >
           Admin (HR) Dashboard
-        </h1>
-      </MotionWrapperDelay>
+        </motion.h1>
 
-      <Tabs defaultValue="schedules" className="space-y-4">
-        {/* Fixed tab bar – standard shadcn pill style with light background */}
-        <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
-          <TabsTrigger value="schedules">Manage Schedules</TabsTrigger>
-          <TabsTrigger value="messages">Send Messages</TabsTrigger>
-          <TabsTrigger value="books">Books / Library</TabsTrigger>
-          <TabsTrigger value="users">Manage Users</TabsTrigger>
-          <TabsTrigger value="invites">Invite Codes</TabsTrigger>
-        </TabsList>
-
-        {/* ====================== SCHEDULES TAB ====================== */}
-        <TabsContent value="schedules">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" /> Add Lesson to Schedule
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Teacher</Label>
-                <Select
-                  value={selectedTeacher}
-                  onValueChange={setSelectedTeacher}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select teacher" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teachers.map((t) => (
-                      <SelectItem key={t._id} value={t._id}>
-                        {t.email} ({t.instrument || "N/A"})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Student</Label>
-                <Select
-                  value={selectedStudent}
-                  onValueChange={setSelectedStudent}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {students.map((s) => (
-                      <SelectItem key={s._id} value={s._id}>
-                        {s.email} ({s.instrument || "N/A"})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Book (Optional)</Label>
-                <Select value={bookId} onValueChange={setBookId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select book" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {books.map((b) => (
-                      <SelectItem key={b._id} value={b._id}>
-                        {b.title} ({b.level}, {b.instrument})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Zoom Link (optional)</Label>
-                <Input
-                  placeholder="https://zoom.us/j/..."
-                  value={zoomLink}
-                  onChange={(e) => setZoomLink(e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>Date (YYYY-MM-DD)</Label>
-                  <Input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Time (HH:MM)</Label>
-                  <Input
-                    type="time"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label>Duration (min)</Label>
-                  <Input
-                    type="number"
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-
-              <Button onClick={handleAddLesson}>
-                <Plus className="mr-2 h-4 w-4" /> Add Lesson
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Current Schedules</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Teacher ID</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Lessons Count</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {schedules.map((sched) => (
-                    <TableRow key={sched._id}>
-                      <TableCell>{sched.teacherId}</TableCell>
-                      <TableCell>
-                        {format(new Date(sched.date), "PPP")}
-                      </TableCell>
-                      <TableCell>{sched.lessons.length} lessons</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ====================== MESSAGES TAB ====================== */}
-        <MotionWrapperDelay
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          variants={{
-            hidden: { opacity: 0, y: 100 },
-            visible: { opacity: 1, y: 0 },
-          }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
         >
-          <TabsContent value="messages">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" /> Send Message to Teacher
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Teacher</Label>
-                  <Select
-                    value={selectedTeacher}
-                    onValueChange={setSelectedTeacher}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select teacher" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teachers.map((t) => (
-                        <SelectItem key={t._id} value={t._id}>
-                          {t.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Message</Label>
-                  <Textarea
-                    value={messageContent}
-                    onChange={(e) => setMessageContent(e.target.value)}
-                  />
-                </div>
-                <Button onClick={handleSendMessage}>
-                  <Send className="mr-2 h-4 w-4" /> Send
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </MotionWrapperDelay>
+          <Tabs defaultValue="schedules" className="space-y-4">
+            {/* Styled tab list */}
+            <TabsList className="bg-purple-900/30 border border-purple-800/30 p-1">
+              <TabsTrigger
+                value="schedules"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Manage Schedules
+              </TabsTrigger>
+              <TabsTrigger
+                value="messages"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Send Messages
+              </TabsTrigger>
+              <TabsTrigger
+                value="books"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Books / Library
+              </TabsTrigger>
+              <TabsTrigger
+                value="users"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Manage Users
+              </TabsTrigger>
+              <TabsTrigger
+                value="invites"
+                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+              >
+                Invite Codes
+              </TabsTrigger>
+            </TabsList>
 
-        {/* ====================== BOOKS / LIBRARY TAB ====================== */}
-        <MotionWrapperDelay
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          variants={{
-            hidden: { opacity: 0, y: 100 },
-            visible: { opacity: 1, y: 0 },
-          }}
-        >
-          <TabsContent value="books" className="space-y-8">
-            {/* Upload Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" /> Upload New PDF Book
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Title</Label>
-                    <Input
-                      value={bookTitle}
-                      onChange={(e) => setBookTitle(e.target.value)}
-                      placeholder="e.g. Alfred's Basic Piano Level 1"
-                    />
-                  </div>
-                  <div>
-                    <Label>Level</Label>
-                    <Select value={bookLevel} onValueChange={setBookLevel}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="basic">Basic</SelectItem>
-                        <SelectItem value="intermediate">
-                          Intermediate
-                        </SelectItem>
-                        <SelectItem value="advanced">Advanced</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Instrument</Label>
-                    <Select
-                      value={bookInstrument}
-                      onValueChange={setBookInstrument}
+            {/* ====================== SCHEDULES TAB ====================== */}
+            <TabsContent value="schedules">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-6"
+              >
+                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
+                      <Calendar className="h-7 w-7 text-purple-400" />
+                      Add Lesson to Schedule
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-purple-300 font-serif">
+                        Teacher
+                      </Label>
+                      <Select
+                        value={selectedTeacher}
+                        onValueChange={setSelectedTeacher}
+                      >
+                        <SelectTrigger className="bg-purple-900/20 border-purple-800/30 text-purple-200">
+                          <SelectValue placeholder="Select teacher" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-purple-950 border-purple-800/30">
+                          {teachers.map((t) => (
+                            <SelectItem key={t._id} value={t._id}>
+                              {t.email} ({t.instrument || "N/A"})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-purple-300 font-serif">
+                        Student
+                      </Label>
+                      <Select
+                        value={selectedStudent}
+                        onValueChange={setSelectedStudent}
+                      >
+                        <SelectTrigger className="bg-purple-900/20 border-purple-800/30 text-purple-200">
+                          <SelectValue placeholder="Select student" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-purple-950 border-purple-800/30">
+                          {students.map((s) => (
+                            <SelectItem key={s._id} value={s._id}>
+                              {s.email} ({s.instrument || "N/A"})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-purple-300 font-serif">
+                        Book (Optional)
+                      </Label>
+                      <Select value={bookId} onValueChange={setBookId}>
+                        <SelectTrigger className="bg-purple-900/20 border-purple-800/30 text-purple-200">
+                          <SelectValue placeholder="Select book" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-purple-950 border-purple-800/30">
+                          {books.map((b) => (
+                            <SelectItem key={b._id} value={b._id}>
+                              {b.title} ({b.level}, {b.instrument})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label className="text-purple-300 font-serif">
+                        Zoom Link (optional)
+                      </Label>
+                      <Input
+                        placeholder="https://zoom.us/j/..."
+                        value={zoomLink}
+                        onChange={(e) => setZoomLink(e.target.value)}
+                        className="bg-purple-900/20 border-purple-800/30 text-purple-200 placeholder:text-purple-400/50"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-purple-300 font-serif">
+                          Date (YYYY-MM-DD)
+                        </Label>
+                        <Input
+                          type="date"
+                          value={date}
+                          onChange={(e) => setDate(e.target.value)}
+                          className="bg-purple-900/20 border-purple-800/30 text-purple-200"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-purple-300 font-serif">
+                          Time (HH:MM)
+                        </Label>
+                        <Input
+                          type="time"
+                          value={time}
+                          onChange={(e) => setTime(e.target.value)}
+                          className="bg-purple-900/20 border-purple-800/30 text-purple-200"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-purple-300 font-serif">
+                          Duration (min)
+                        </Label>
+                        <Input
+                          type="number"
+                          value={duration}
+                          onChange={(e) => setDuration(Number(e.target.value))}
+                          className="bg-purple-900/20 border-purple-800/30 text-purple-200"
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleAddLesson}
+                      className="bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select instrument" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {instruments.map((i) => (
-                          <SelectItem key={i} value={i}>
-                            {i}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>PDF File</Label>
-                    <Input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => setBookFile(e.target.files?.[0] || null)}
-                    />
-                  </div>
-                </div>
-                <Button
-                  onClick={handleUploadBook}
-                  disabled={!bookFile || !bookTitle || !bookInstrument}
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Upload Book
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Library Grid */}
-            <div>
-              <h2 className="text-2xl font-bold mb-6">
-                Library ({books.length} books)
-              </h2>
-
-              {books.length === 0 ? (
-                <Card>
-                  <CardContent className="text-center py-16 text-muted-foreground">
-                    <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg">No books uploaded yet</p>
+                      <Plus className="mr-2 h-4 w-4" /> Add Lesson
+                    </Button>
                   </CardContent>
                 </Card>
-              ) : (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {books.map((book) => (
-                    <div key={book._id} className="relative group">
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() =>
-                          handleDeleteBook(book._id, book.driveFileId)
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
 
-                      <Card className="h-full hover:shadow-lg transition-shadow">
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <FileText className="h-8 w-8 text-blue-600" />
-                            <div className="flex gap-2">
-                              <Badge variant="outline">{book.level}</Badge>
-                              <Badge variant="secondary">
-                                {book.instrument}
-                              </Badge>
+                {/* ====================== CURRENT SCHEDULES WITH DELETE ====================== */}
+                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                  <CardHeader>
+                    <CardTitle className="text-purple-200 font-serif text-2xl">
+                      Current Schedules & Lessons
+                    </CardTitle>
+                    <CardDescription className="text-purple-400">
+                      Click delete to cancel a lesson and free the slot
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {schedules.length === 0 ? (
+                      <p className="text-center text-purple-400 py-8">
+                        No scheduled lessons yet
+                      </p>
+                    ) : (
+                      schedules.map((sched) => {
+                        const teacher = teachers.find(
+                          (t) => t._id === sched.teacherId
+                        );
+                        const teacherName =
+                          teacher?.email.split("@")[0] || sched.teacherId;
+
+                        return (
+                          <div
+                            key={sched._id}
+                            className="border border-purple-800/30 rounded-lg overflow-hidden"
+                          >
+                            <div className="bg-purple-900/30 p-4 flex justify-between items-center">
+                              <div>
+                                <p className="text-purple-200 font-serif font-bold">
+                                  {teacherName} •{" "}
+                                  {format(
+                                    new Date(sched.date),
+                                    "EEEE, MMMM d, yyyy"
+                                  )}
+                                </p>
+                                <p className="text-purple-400 text-sm">
+                                  {sched.lessons.length} lesson(s)
+                                </p>
+                              </div>
                             </div>
+
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-purple-900/20">
+                                  <TableHead className="text-purple-300">
+                                    Student
+                                  </TableHead>
+                                  <TableHead className="text-purple-300">
+                                    Time
+                                  </TableHead>
+                                  <TableHead className="text-purple-300">
+                                    Duration
+                                  </TableHead>
+                                  <TableHead className="text-purple-300">
+                                    Book
+                                  </TableHead>
+                                  <TableHead className="text-purple-300 text-right">
+                                    Actions
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {sched.lessons.map((lesson, idx) => {
+                                  const student = students.find(
+                                    (s) => s._id === lesson.studentId
+                                  );
+                                  const book = lesson.bookId
+                                    ? books.find((b) => b._id === lesson.bookId)
+                                    : null;
+
+                                  return (
+                                    <TableRow
+                                      key={idx}
+                                      className="hover:bg-purple-900/20"
+                                    >
+                                      <TableCell className="text-purple-200">
+                                        {student?.email.split("@")[0] ||
+                                          "Unknown"}
+                                      </TableCell>
+                                      <TableCell className="text-purple-200">
+                                        {lesson.time}
+                                      </TableCell>
+                                      <TableCell className="text-purple-200">
+                                        {lesson.duration} min
+                                      </TableCell>
+                                      <TableCell className="text-purple-200">
+                                        {book ? book.title : "—"}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          onClick={async () => {
+                                            if (
+                                              !confirm(
+                                                "Cancel this lesson? This cannot be undone."
+                                              )
+                                            )
+                                              return;
+
+                                            await deleteLesson({
+                                              scheduleId: sched._id,
+                                              lessonIndex: idx,
+                                            });
+                                            toast.success("Lesson cancelled");
+                                          }}
+                                          className="bg-red-600 hover:bg-red-700"
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-1" />
+                                          Cancel
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
                           </div>
-                          <CardTitle className="text-lg mt-2 pr-8">
-                            {book.title}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() =>
-                                window.open(book.driveViewLink, "_blank")
-                              }
-                              className="flex-1"
-                            >
-                              <ExternalLink className="mr-2 h-4 w-4" /> View
-                              Book
-                            </Button>
-                            {book.driveDownloadLink && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  window.open(book.driveDownloadLink, "_blank")
-                                }
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-3">
-                            Uploaded {format(book.uploadedAt, "PP")}
-                          </p>
-                        </CardContent>
-                      </Card>
+                        );
+                      })
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
+
+            {/* ====================== MESSAGES TAB ====================== */}
+            <TabsContent value="messages">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
+                      <MessageSquare className="h-7 w-7 text-purple-400" />
+                      Send Message to Teacher
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-purple-300 font-serif">
+                        Teacher
+                      </Label>
+                      <Select
+                        value={selectedTeacher}
+                        onValueChange={setSelectedTeacher}
+                      >
+                        <SelectTrigger className="bg-purple-900/20 border-purple-800/30 text-purple-200">
+                          <SelectValue placeholder="Select teacher" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-purple-950 border-purple-800/30">
+                          {teachers.map((t) => (
+                            <SelectItem key={t._id} value={t._id}>
+                              {t.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </MotionWrapperDelay>
+                    <div>
+                      <Label className="text-purple-300 font-serif">
+                        Message
+                      </Label>
+                      <Textarea
+                        value={messageContent}
+                        onChange={(e) => setMessageContent(e.target.value)}
+                        className="bg-purple-900/20 border-purple-800/30 text-purple-200 placeholder:text-purple-400/50 min-h-32 font-serif"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSendMessage}
+                      className="bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                    >
+                      <Send className="mr-2 h-4 w-4" /> Send
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
 
-        {/* ====================== USERS TAB ====================== */}
-
-        <TabsContent value="users">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UsersIcon className="h-5 w-5" /> Manage Users
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="teachers">
-                <TabsList>
-                  <TabsTrigger value="teachers">Teachers</TabsTrigger>
-                  <TabsTrigger value="students">Students</TabsTrigger>
-                  <TabsTrigger value="payments">Payments</TabsTrigger>
-                </TabsList>
-
-                <MotionWrapperDelay
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true, amount: 0.5 }}
-                  transition={{ duration: 0.3, delay: 0.2 }}
-                  variants={{
-                    hidden: { opacity: 0, y: 100 },
-                    visible: { opacity: 1, y: 0 },
-                  }}
-                >
-                  <TabsContent value="teachers">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Instrument</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {teachers.map((t) => (
-                          <TableRow key={t._id}>
-                            <TableCell>{t.email}</TableCell>
-                            <TableCell>{t.instrument || "N/A"}</TableCell>
-                            <TableCell>{t.role}</TableCell>
-                            <TableCell className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                onClick={() => handleUpdateRole(t._id, "admin")}
-                              >
-                                <Edit className="h-4 w-4" /> Promote to Admin
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                onClick={() => handleDeleteUser(t._id)}
-                              >
-                                <Trash className="h-4 w-4" /> Delete
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TabsContent>
-                </MotionWrapperDelay>
-
-                <TabsContent value="students">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Instrument</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {students.map((s) => (
-                        <TableRow key={s._id}>
-                          <TableCell>{s.email}</TableCell>
-                          <TableCell>{s.instrument || "N/A"}</TableCell>
-                          <TableCell>{s.role}</TableCell>
-                          <TableCell className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              onClick={() => handleUpdateRole(s._id, "teacher")}
-                            >
-                              <Edit className="h-4 w-4" /> Promote to Teacher
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              onClick={() => handleDeleteUser(s._id)}
-                            >
-                              <Trash className="h-4 w-4" /> Delete
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TabsContent>
-
-                <TabsContent value="payments">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Calculate Monthly Payments</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex gap-2">
+            {/* ====================== BOOKS / LIBRARY TAB ====================== */}
+            <TabsContent value="books" className="space-y-8">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
+                      <FileText className="h-7 w-7 text-purple-400" />
+                      Upload New PDF Book
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-purple-300 font-serif">
+                          Title
+                        </Label>
                         <Input
-                          placeholder="2025-11"
-                          value={calcMonth}
-                          onChange={(e) => setCalcMonth(e.target.value)}
+                          value={bookTitle}
+                          onChange={(e) => setBookTitle(e.target.value)}
+                          placeholder="e.g. Alfred's Basic Piano Level 1"
+                          className="bg-purple-900/20 border-purple-800/30 text-purple-200 placeholder:text-purple-400/50"
                         />
-                        <Button
-                          onClick={async () => {
-                            await calculateMonth({ month: calcMonth });
-                            toast("Payments calculated!");
-                          }}
-                        >
-                          Calculate
-                        </Button>
                       </div>
+                      <div>
+                        <Label className="text-purple-300 font-serif">
+                          Level
+                        </Label>
+                        <Select value={bookLevel} onValueChange={setBookLevel}>
+                          <SelectTrigger className="bg-purple-900/20 border-purple-800/30 text-purple-200">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-purple-950 border-purple-800/30">
+                            <SelectItem value="basic">Basic</SelectItem>
+                            <SelectItem value="intermediate">
+                              Intermediate
+                            </SelectItem>
+                            <SelectItem value="advanced">Advanced</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-purple-300 font-serif">
+                          Instrument
+                        </Label>
+                        <Select
+                          value={bookInstrument}
+                          onValueChange={setBookInstrument}
+                        >
+                          <SelectTrigger className="bg-purple-900/20 border-purple-800/30 text-purple-200">
+                            <SelectValue placeholder="Select instrument" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-purple-950 border-purple-800/30">
+                            {instruments.map((i) => (
+                              <SelectItem key={i} value={i}>
+                                {i}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-purple-300 font-serif">
+                          PDF File
+                        </Label>
+                        <Input
+                          type="file"
+                          accept=".pdf"
+                          onChange={(e) =>
+                            setBookFile(e.target.files?.[0] || null)
+                          }
+                          className="bg-purple-900/20 border-purple-800/30 text-purple-200"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleUploadBook}
+                      disabled={!bookFile || !bookTitle || !bookInstrument}
+                      className="bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50 shadow-[0_0_15px_rgba(168,85,247,0.3)] disabled:opacity-50"
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Upload Book
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Library Grid */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <h2 className="text-3xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-purple-400 to-purple-200 font-serif">
+                  Library ({books.length} books)
+                </h2>
+
+                {books.length === 0 ? (
+                  <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30">
+                    <CardContent className="text-center py-16">
+                      <motion.div
+                        animate={{ y: [0, -10, 0] }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      >
+                        <FileText className="h-16 w-16 mx-auto mb-4 opacity-40 text-purple-400" />
+                      </motion.div>
+                      <p className="text-lg text-purple-300 font-serif">
+                        No books uploaded yet
+                      </p>
                     </CardContent>
                   </Card>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {books.map((book, index) => (
+                      <motion.div
+                        key={book._id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="relative group"
+                      >
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-red-700 hover:bg-red-600"
+                          onClick={() =>
+                            handleDeleteBook(book._id, book.driveFileId)
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
 
-        {/* ====================== INVITES TAB ====================== */}
-        <MotionWrapperDelay
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-          variants={{
-            hidden: { opacity: 0, y: 100 },
-            visible: { opacity: 1, y: 0 },
-          }}
-        >
-          <TabsContent value="invites">
-            <Link href="/dashboard/admin/invite-codes">
-              <Button variant={"sex3"}>Go to Invite Codes Management</Button>
-            </Link>
-          </TabsContent>
-        </MotionWrapperDelay>
-      </Tabs>
+                        <Card className="h-full bg-gradient-to-br from-purple-900/40 to-black/60 border border-purple-700/40 shadow-[0_0_20px_rgba(168,85,247,0.15)] hover:shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-shadow group-hover:scale-105 transition-transform">
+                          <CardHeader>
+                            <div className="flex items-start justify-between">
+                              <FileText className="h-8 w-8 text-purple-400" />
+                              <div className="flex gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className="bg-purple-900/30 border-purple-700/50 text-purple-300"
+                                >
+                                  {book.level}
+                                </Badge>
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-purple-800/50 text-purple-200 border-purple-700/50"
+                                >
+                                  {book.instrument}
+                                </Badge>
+                              </div>
+                            </div>
+                            <CardTitle className="text-lg mt-2 pr-8 text-purple-200 font-serif">
+                              {book.title}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() =>
+                                  window.open(book.driveViewLink, "_blank")
+                                }
+                                className="flex-1 bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50"
+                              >
+                                <ExternalLink className="mr-2 h-4 w-4" /> View
+                              </Button>
+                              {book.driveDownloadLink && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    window.open(
+                                      book.driveDownloadLink,
+                                      "_blank"
+                                    )
+                                  }
+                                  className="border-purple-600/50 text-purple-300 hover:bg-purple-800/30"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                            <p className="text-xs text-purple-400/60 mt-3 font-serif">
+                              Uploaded {format(book.uploadedAt, "PP")}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </TabsContent>
+
+            {/* ====================== USERS TAB ====================== */}
+            <TabsContent value="users">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
+                      <UsersIcon className="h-7 w-7 text-purple-400" />
+                      Manage Users
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs defaultValue="teachers">
+                      <TabsList className="bg-purple-900/30 border border-purple-800/30 mb-6">
+                        <TabsTrigger
+                          value="teachers"
+                          className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+                        >
+                          Teachers
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="students"
+                          className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+                        >
+                          Students
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="payments"
+                          className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
+                        >
+                          Payments
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="teachers">
+                        <div className="rounded-lg border border-purple-800/30 overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-purple-900/20 border-b border-purple-800/30">
+                                <TableHead className="text-purple-300 font-serif">
+                                  Email
+                                </TableHead>
+                                <TableHead className="text-purple-300 font-serif">
+                                  Instrument
+                                </TableHead>
+                                <TableHead className="text-purple-300 font-serif">
+                                  Role
+                                </TableHead>
+                                <TableHead className="text-purple-300 font-serif">
+                                  Actions
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {teachers.map((t, index) => (
+                                <motion.tr
+                                  key={t._id}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: index * 0.05 }}
+                                  className="border-b border-purple-800/20 hover:bg-purple-900/20 transition-colors"
+                                >
+                                  <TableCell className="text-purple-200 font-serif">
+                                    {t.email}
+                                  </TableCell>
+                                  <TableCell className="text-purple-200 font-serif">
+                                    {t.instrument || "N/A"}
+                                  </TableCell>
+                                  <TableCell className="text-purple-200 font-serif">
+                                    {t.role}
+                                  </TableCell>
+                                  <TableCell className="flex gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleUpdateRole(t._id, "admin")
+                                      }
+                                      className="text-purple-400 hover:text-purple-300 hover:bg-purple-800/30"
+                                    >
+                                      <Edit className="h-4 w-4 mr-1" /> Promote
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteUser(t._id)}
+                                      className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
+                                    >
+                                      <Trash className="h-4 w-4 mr-1" /> Delete
+                                    </Button>
+                                  </TableCell>
+                                </motion.tr>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="students">
+                        <div className="rounded-lg border border-purple-800/30 overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-purple-900/20 border-b border-purple-800/30">
+                                <TableHead className="text-purple-300 font-serif">
+                                  Email
+                                </TableHead>
+                                <TableHead className="text-purple-300 font-serif">
+                                  Instrument
+                                </TableHead>
+                                <TableHead className="text-purple-300 font-serif">
+                                  Role
+                                </TableHead>
+                                <TableHead className="text-purple-300 font-serif">
+                                  Actions
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {students.map((s, index) => (
+                                <motion.tr
+                                  key={s._id}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: index * 0.05 }}
+                                  className="border-b border-purple-800/20 hover:bg-purple-900/20 transition-colors"
+                                >
+                                  <TableCell className="text-purple-200 font-serif">
+                                    {s.email}
+                                  </TableCell>
+                                  <TableCell className="text-purple-200 font-serif">
+                                    {s.instrument || "N/A"}
+                                  </TableCell>
+                                  <TableCell className="text-purple-200 font-serif">
+                                    {s.role}
+                                  </TableCell>
+                                  <TableCell className="flex gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleUpdateRole(s._id, "teacher")
+                                      }
+                                      className="text-purple-400 hover:text-purple-300 hover:bg-purple-800/30"
+                                    >
+                                      <Edit className="h-4 w-4 mr-1" /> Promote
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteUser(s._id)}
+                                      className="text-red-400 hover:text-red-300 hover:bg-red-900/30"
+                                    >
+                                      <Trash className="h-4 w-4 mr-1" /> Delete
+                                    </Button>
+                                  </TableCell>
+                                </motion.tr>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="payments">
+                        <Card className="bg-gradient-to-br from-purple-900/40 to-black/60 border border-purple-700/40">
+                          <CardHeader>
+                            <CardTitle className="text-purple-200 font-serif">
+                              Calculate Monthly Payments
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="2025-11"
+                                value={calcMonth}
+                                onChange={(e) => setCalcMonth(e.target.value)}
+                                className="bg-purple-900/20 border-purple-800/30 text-purple-200 placeholder:text-purple-400/50"
+                              />
+                              <Button
+                                onClick={async () => {
+                                  await calculateMonth({ month: calcMonth });
+                                  toast.success("Payments calculated!");
+                                }}
+                                className="bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                              >
+                                Calculate
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
+
+            {/* ====================== INVITES TAB ====================== */}
+            <TabsContent value="invites">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                  <CardContent className="pt-6">
+                    <Link href="/dashboard/admin/invite-codes">
+                      <Button className="bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50 shadow-[0_0_15px_rgba(168,85,247,0.3)] w-full">
+                        Go to Invite Codes Management
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
+      </div>
     </div>
   );
 }
