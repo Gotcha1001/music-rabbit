@@ -1,122 +1,377 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
+/* LIGHT MODE - Pure white, clean design */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 3.9%;
+  --primary: 270 80% 60%; /* Adjusted: Deeper purple, less pinkish (lower saturation) */
+  --primary-foreground: 0 0% 100%;
+  --border: 0 0% 89.8%;
+  --input: 0 0% 89.8%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --ring: 270 80% 60%; /* Match primary */
+  --radius: 0.75rem;
 }
 
+/* DARK MODE - RICHER, DARKER purple gothic theme */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: 0 0% 0%;
+  --foreground: 270 40% 97%; /* Adjusted hue for consistent purple */
+  --card: 270 90% 5%; /* Deeper purple card bg */
+  --card-foreground: 270 35% 96%;
+  --primary: 270 80% 60%; /* Consistent deeper purple */
+  --primary-foreground: 270 60% 5%;
+  --border: 270 70% 12%;
+  --input: 270 80% 6%;
+  --muted: 270 80% 8%;
+  --muted-foreground: 270 30% 65%;
+  --ring: 270 80% 60%;
+  --radius: 0.75rem;
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+/* Pure white background for light mode */
+body,
+.min-h-screen {
+  background: #ffffff;
+}
+
+/* DARKER, RICHER radial gradient for dark mode */
+.dark body,
+.dark .min-h-screen {
+  background: radial-gradient(
+    ellipse at top,
+    #1a0f2e 0%,
+    #0a0612 50%,
+    #000000 100%
+  );
+  background-attachment: fixed;
+}
+
+/* Purple glow on cards - DARK MODE ONLY */
+.dark .shadow-lg {
+  box-shadow:
+    0 20px 50px -12px rgba(108, 40, 255, 0.35),
+    0 0 30px rgba(147, 51, 234, 0.12) inset;
+}
+
+.dark .shadow {
+  box-shadow: 0 8px 30px -10px rgba(108, 40, 255, 0.25);
+}
+
+/* Replicate EXACT purple glow shadows from original - DARK MODE */
+.dark .shadow-purple-glow {
+  box-shadow: 0 0 60px rgba(139, 92, 246, 0.3); /* Adjusted to cooler purple */
+}
+
+.dark .shadow-purple-intense {
+  box-shadow:
+    0 20px 50px -12px rgba(139, 92, 246, 0.35),
+    0 0 30px rgba(126, 34, 206, 0.12) inset; /* Less pinkish */
+}
+
+/* Original card styling with purple glow - DARK MODE */
+.dark .bg-gothic-card {
+  background: linear-gradient(
+    to bottom right,
+    hsl(270 80% 6%),
+    hsl(270 90% 4%)
+  );
+  border-color: rgba(139, 92, 246, 0.3); /* Adjusted */
+  box-shadow:
+    0 0 60px rgba(139, 92, 246, 0.3),
+    0 20px 50px -12px rgba(108, 40, 255, 0.35);
+}
+
+/* EXACT purple borders from original - DARK MODE */
+.dark .border-purple-glow {
+  border-color: rgba(139, 92, 246, 0.3); /* Cooler purple */
+}
+
+/* Original gradient header backgrounds - DARK MODE */
+.dark .bg-purple-header {
+  background: linear-gradient(
+    to right,
+    #4c1d95 0%,
+    #5b21b6 50%,
+    #000000 100%
+  ); /* Deeper purple, no pink */
+}
+
+/* Dropdown/Popover styling - BOTH MODES */
+[data-radix-select-content],
+[data-radix-popover-content],
+[data-radix-dropdown-menu-content],
+[data-radix-popper-content-wrapper] {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 10px 40px -8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Dark mode dropdowns */
+.dark [data-radix-select-content],
+.dark [data-radix-popover-content],
+.dark [data-radix-dropdown-menu-content],
+.dark [data-radix-popper-content-wrapper] {
+  background: linear-gradient(
+    to bottom,
+    hsl(270 80% 7%),
+    hsl(270 85% 5%)
+  ) !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important; /* Adjusted */
+  box-shadow:
+    0 10px 40px -8px rgba(0, 0, 0, 0.7),
+    0 0 30px rgba(126, 34, 206, 0.2) !important; /* Less pink */
+}
+
+[data-radix-select-item],
+[data-radix-dropdown-menu-item] {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark [data-radix-select-item]:hover,
+.dark [data-radix-dropdown-menu-item]:hover {
+  background-color: rgba(139, 92, 246, 0.15) !important; /* Adjusted hover */
+}
+
+/* Active tab styling - BOTH MODES */
+button[data-state="active"][role="tab"],
+[role="tab"][data-state="active"],
+.data-\[state\=active\]\:bg-primary[data-state="active"] {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px hsla(var(--primary), 0.4) !important;
+  border-radius: calc(var(--radius) - 4px) !important;
+  position: relative !important;
+}
+
+button[data-state="active"][role="tab"]::after,
+[role="tab"][data-state="active"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 3px;
+  background: hsl(var(--primary));
+  border-radius: 999px;
+  box-shadow: 0 0 15px hsl(var(--primary));
+}
+
+button[role="tab"]:hover:not([data-state="active"]),
+[role="tab"]:hover:not([data-state="active"]) {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+button[role="tab"],
+[role="tab"] {
+  transition: all 0.2s ease !important;
+}
+
+/* Utility classes */
+@layer utilities {
+  /* Semantic theme colors */
+  .bg-background {
+    background-color: hsl(var(--background));
   }
+  .text-foreground {
+    color: hsl(var(--foreground));
+  }
+  .bg-card {
+    background-color: hsl(var(--card));
+  }
+  .text-card-foreground {
+    color: hsl(var(--card-foreground));
+  }
+  .border-border {
+    border-color: hsl(var(--border));
+  }
+  .bg-muted {
+    background-color: hsl(var(--muted));
+  }
+  .text-muted-foreground {
+    color: hsl(var(--muted-foreground));
+  }
+  .text-primary {
+    color: hsl(var(--primary));
+  }
+  .bg-primary {
+    background-color: hsl(var(--primary));
+  }
+  /* EXACT purple color classes from your original theme */
+  /* Purple text shades - Adjusted for less pink */
+  .text-purple-50 {
+    color: #f5f3ff; /* Softer lavender */
+  }
+  .text-purple-100 {
+    color: #ede9fe;
+  }
+  .text-purple-200 {
+    color: #ddd6fe;
+  }
+  .text-purple-300 {
+    color: #c4b5fd;
+  }
+  .text-purple-400 {
+    color: #a78bfa; /* Deeper, less pink */
+  }
+  /* Purple backgrounds - Adjusted */
+  .bg-purple-600 {
+    background-color: #7c3aed; /* Deeper purple */
+  }
+  .bg-purple-700 {
+    background-color: #6d28d9;
+  }
+  .bg-purple-800 {
+    background-color: #5b21b6;
+  }
+  .bg-purple-900 {
+    background-color: #4c1d95;
+  }
+  .bg-purple-950 {
+    background-color: #2e1065;
+  }
+  /* Purple borders - Adjusted */
+  .border-purple-600 {
+    border-color: #7c3aed;
+  }
+  .border-purple-700 {
+    border-color: #6d28d9;
+  }
+  .border-purple-800 {
+    border-color: #5b21b6;
+  }
+  /* Opacity variants - Adjusted rgba for cooler tones */
+  .bg-purple-950\/30 {
+    background-color: rgba(46, 16, 101, 0.3);
+  }
+  .bg-purple-900\/20 {
+    background-color: rgba(76, 29, 149, 0.2);
+  }
+  .bg-purple-900\/40 {
+    background-color: rgba(76, 29, 149, 0.4);
+  }
+  .bg-purple-900\/50 {
+    background-color: rgba(76, 29, 149, 0.5);
+  }
+  .bg-purple-800\/30 {
+    background-color: rgba(91, 33, 182, 0.3);
+  }
+  .bg-purple-800\/50 {
+    background-color: rgba(91, 33, 182, 0.5);
+  }
+  .border-purple-800\/30 {
+    border-color: rgba(91, 33, 182, 0.3);
+  }
+  .border-purple-700\/30 {
+    border-color: rgba(109, 40, 217, 0.3);
+  }
+  .border-purple-700\/40 {
+    border-color: rgba(109, 40, 217, 0.4);
+  }
+  .border-purple-700\/50 {
+    border-color: rgba(109, 40, 217, 0.5);
+  }
+  .border-purple-600\/50 {
+    border-color: rgba(124, 58, 237, 0.5);
+  }
+  .text-purple-400\/70 {
+    color: rgba(167, 139, 250, 0.7); /* Adjusted */
+  }
+  .text-purple-400\/80 {
+    color: rgba(167, 139, 250, 0.8);
+  }
+  .text-purple-300\/90 {
+    color: rgba(196, 181, 253, 0.9);
+  }
+  /* Exact shadow from original */
+  .shadow-purple-original {
+    box-shadow: 0 0 60px rgba(139, 92, 246, 0.3); /* Cooler */
+  }
+  .shadow-purple-card {
+    box-shadow:
+      0 0 40px rgba(139, 92, 246, 0.2),
+      0 20px 50px -12px rgba(108, 40, 255, 0.35);
+  }
+  /* Gradient backgrounds - EXACT from original */
+  .bg-gradient-purple-to-black {
+    background: linear-gradient(to bottom right, #2e1065, #000000); /* Deeper */
+  }
+  .bg-gradient-purple-header {
+    background: linear-gradient(to right, #4c1d95, #5b21b6, #000000);
+  }
+  /* Black backgrounds */
+  .bg-black\/50 {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+  .bg-black\/60 {
+    background-color: rgba(0, 0, 0, 0.6);
+  }
+  /* Admin-specific utilities */
+  .bg-admin-gradient {
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--background)),
+      hsl(var(--card)),
+      hsl(var(--background))
+    );
+  }
+  .bg-admin-card {
+    background: linear-gradient(
+      to bottom right,
+      hsl(var(--card)),
+      hsl(var(--background))
+    );
+  }
+  .text-purple-themed {
+    color: hsl(var(--primary));
+  }
+  .border-purple-themed {
+    border-color: hsl(var(--primary) / 0.3);
+  }
+  .shadow-purple-themed {
+    box-shadow: 0 0 40px hsla(var(--primary) / 0.2);
+  }
+}
+
+/* Base styles */
+@layer base {
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    min-height: 100vh;
+    transition:
+      background-color 0.4s ease,
+      color 0.4s ease;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-property:
+      background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: 0.3s;
+    transition-timing-function: ease-in-out;
+  }
+  /* Gothic scrollbar - DARK MODE ONLY */
+  .dark::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .dark::-webkit-scrollbar-track {
+    background: #0a0612;
+  }
+  .dark::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.4); /* Adjusted thumb */
+    border-radius: 5px;
+  }
+  .dark::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.6);
   }
 }

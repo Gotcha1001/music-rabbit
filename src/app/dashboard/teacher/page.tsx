@@ -757,12 +757,12 @@ export default function TeacherDashboard() {
 
   if (!clerkLoaded || currentUser === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-black via-purple-950 to-black">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
         >
-          <Loader2 className="h-12 w-12 text-purple-400" />
+          <Loader2 className="h-12 w-12 text-primary" />
         </motion.div>
       </div>
     );
@@ -770,11 +770,11 @@ export default function TeacherDashboard() {
 
   if (!currentUser || currentUser.role !== "teacher") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="p-8 text-center text-red-400 bg-red-950/30 border-2 border-red-800/50 rounded-lg"
+          className="p-8 text-center text-red-500 bg-red-950/30 border-2 border-red-500/50 rounded-lg"
         >
           <p className="text-xl font-serif">Access denied — teachers only</p>
         </motion.div>
@@ -787,7 +787,7 @@ export default function TeacherDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 max-w-7xl">
         {/* Clock at the top */}
         <motion.div
@@ -803,7 +803,7 @@ export default function TeacherDashboard() {
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-5xl font-bold mb-12 text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-purple-400 to-purple-200 font-serif"
+          className="text-5xl font-bold mb-12 text-primary font-serif"
         >
           Welcome back, {clerkUser?.firstName || "Teacher"}! 🎵
         </motion.h1>
@@ -814,31 +814,11 @@ export default function TeacherDashboard() {
           transition={{ duration: 0.6, delay: 0.2 }}
         >
           <Tabs defaultValue="schedule" className="w-full">
-            <TabsList className="bg-purple-900/30 border border-purple-800/30 mb-8">
-              <TabsTrigger
-                value="schedule"
-                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
-              >
-                Schedule
-              </TabsTrigger>
-              <TabsTrigger
-                value="messages"
-                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
-              >
-                Messages
-              </TabsTrigger>
-              <TabsTrigger
-                value="payments"
-                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
-              >
-                Payments
-              </TabsTrigger>
-              <TabsTrigger
-                value="recordings"
-                className="data-[state=active]:bg-purple-800 data-[state=active]:text-purple-100"
-              >
-                Recordings
-              </TabsTrigger>
+            <TabsList className="bg-card border border-border p-1 mb-8">
+              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+              <TabsTrigger value="messages">Messages</TabsTrigger>
+              <TabsTrigger value="payments">Payments</TabsTrigger>
+              <TabsTrigger value="recordings">Recordings</TabsTrigger>
             </TabsList>
 
             <TabsContent value="schedule">
@@ -847,10 +827,10 @@ export default function TeacherDashboard() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5 }}
               >
-                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                <Card className="bg-card border-2 border-border shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
-                      <Video className="h-7 w-7 text-purple-400" />
+                    <CardTitle className="flex items-center gap-3 text-card-foreground font-serif text-2xl">
+                      <Video className="h-7 w-7 text-primary" />
                       Today&apos;s Schedule
                     </CardTitle>
                   </CardHeader>
@@ -867,10 +847,10 @@ export default function TeacherDashboard() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5 }}
               >
-                <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+                <Card className="bg-card border-2 border-border shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
-                      <MessageSquare className="h-7 w-7 text-purple-400" />
+                    <CardTitle className="flex items-center gap-3 text-card-foreground font-serif text-2xl">
+                      <MessageSquare className="h-7 w-7 text-primary" />
                       Messages from HR
                     </CardTitle>
                   </CardHeader>
@@ -879,7 +859,7 @@ export default function TeacherDashboard() {
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="text-center text-purple-400/70 py-12 font-serif italic"
+                        className="text-center text-muted-foreground py-12 font-serif italic"
                       >
                         No messages yet
                       </motion.div>
@@ -890,12 +870,12 @@ export default function TeacherDashboard() {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className="mb-4 p-4 border border-purple-800/30 rounded-lg bg-purple-900/20 hover:bg-purple-900/40 transition-colors"
+                          className="mb-4 p-4 border border-border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
                         >
-                          <div className="text-purple-200 font-serif">
+                          <div className="text-foreground font-serif">
                             {msg.content}
                           </div>
-                          <div className="text-sm text-purple-400/60 mt-2 font-serif">
+                          <div className="text-sm text-muted-foreground mt-2 font-serif">
                             {format(msg.timestamp, "PPP p")}
                           </div>
                         </motion.div>
@@ -936,20 +916,21 @@ export default function TeacherDashboard() {
 function StudentName({ id }: { id: Id<"users"> }) {
   const student = useQuery(api.users.getById, { id });
   return (
-    <span className="text-purple-300">{student?.email ?? "Loading..."}</span>
+    <span className="text-foreground">{student?.email ?? "Loading..."}</span>
   );
 }
 
 function BookTitle({ id }: { id?: Id<"books"> }) {
   const book = useQuery(api.books.getById, id ? { id } : "skip");
 
-  if (!id || !book) return <span className="text-purple-400/50">No book</span>;
+  if (!id || !book)
+    return <span className="text-muted-foreground">No book</span>;
 
   return (
     <Button
       variant="link"
       onClick={() => window.open(book.driveViewLink, "_blank")}
-      className="p-0 h-auto flex items-center gap-2 text-purple-400 hover:text-purple-300"
+      className="p-0 h-auto flex items-center gap-2 text-primary hover:text-primary/80"
     >
       <FileText className="h-4 w-4" />
       {book.title}
@@ -975,12 +956,12 @@ function ScheduleTable({
           animate={{ y: [0, -10, 0] }}
           transition={{ duration: 3, repeat: Infinity }}
         >
-          <Video className="h-16 w-16 mx-auto mb-4 opacity-40 text-purple-400" />
+          <Video className="h-16 w-16 mx-auto mb-4 opacity-40 text-primary" />
         </motion.div>
-        <p className="text-lg text-purple-300 font-serif">
+        <p className="text-lg text-foreground font-serif">
           No lessons scheduled
         </p>
-        <p className="text-sm text-purple-400/70 mt-2 font-serif">
+        <p className="text-sm text-muted-foreground mt-2 font-serif">
           Check back later for your upcoming lessons
         </p>
       </motion.div>
@@ -988,21 +969,21 @@ function ScheduleTable({
   }
 
   return (
-    <div className="rounded-lg border border-purple-800/30 overflow-hidden">
+    <div className="rounded-lg border border-border overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-purple-900/20 border-b border-purple-800/30 hover:bg-purple-900/30">
-            <TableHead className="text-purple-300 font-serif">Date</TableHead>
-            <TableHead className="text-purple-300 font-serif">Time</TableHead>
-            <TableHead className="text-purple-300 font-serif">
+          <TableRow className="bg-muted/50 border-b border-border hover:bg-muted/70">
+            <TableHead className="text-foreground font-serif">Date</TableHead>
+            <TableHead className="text-foreground font-serif">Time</TableHead>
+            <TableHead className="text-foreground font-serif">
               Student
             </TableHead>
-            <TableHead className="text-purple-300 font-serif">
+            <TableHead className="text-foreground font-serif">
               Duration
             </TableHead>
-            <TableHead className="text-purple-300 font-serif">Book</TableHead>
-            <TableHead className="text-purple-300 font-serif">Status</TableHead>
-            <TableHead className="text-purple-300 font-serif">
+            <TableHead className="text-foreground font-serif">Book</TableHead>
+            <TableHead className="text-foreground font-serif">Status</TableHead>
+            <TableHead className="text-foreground font-serif">
               Actions
             </TableHead>
           </TableRow>
@@ -1021,18 +1002,18 @@ function ScheduleTable({
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: globalIndex * 0.05 }}
-                  className="border-b border-purple-800/20 hover:bg-purple-900/20 transition-colors"
+                  className="border-b border-border hover:bg-muted/30 transition-colors"
                 >
-                  <TableCell className="text-purple-200 font-serif">
+                  <TableCell className="text-foreground font-serif">
                     {format(startMs, "PPP")}
                   </TableCell>
-                  <TableCell className="text-purple-200 font-serif">
+                  <TableCell className="text-foreground font-serif">
                     {l.time}
                   </TableCell>
                   <TableCell>
                     <StudentName id={l.studentId} />
                   </TableCell>
-                  <TableCell className="text-purple-200 font-serif">
+                  <TableCell className="text-foreground font-serif">
                     {l.duration} min
                   </TableCell>
                   <TableCell>
@@ -1042,7 +1023,7 @@ function ScheduleTable({
                     {l.completed ? (
                       <Badge
                         variant="secondary"
-                        className="bg-purple-800/50 text-purple-200 border-purple-700/50"
+                        className="bg-muted border-border text-foreground"
                       >
                         Completed
                       </Badge>
@@ -1051,8 +1032,8 @@ function ScheduleTable({
                         variant={isActive ? "default" : "outline"}
                         className={
                           isActive
-                            ? "bg-purple-700 text-purple-100 border-purple-600 shadow-[0_0_10px_rgba(168,85,247,0.5)]"
-                            : "border-purple-600/50 text-purple-300"
+                            ? "bg-primary text-primary-foreground border-primary shadow-lg"
+                            : "border-border text-foreground"
                         }
                       >
                         {isActive ? "In Progress" : "Scheduled"}
@@ -1064,7 +1045,7 @@ function ScheduleTable({
                       variant="default"
                       size="sm"
                       asChild
-                      className="bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground border border-primary shadow-lg"
                     >
                       <Link href={`/dashboard/lesson/${s._id}/${l.lessonId}`}>
                         <Video className="h-4 w-4 mr-2" />

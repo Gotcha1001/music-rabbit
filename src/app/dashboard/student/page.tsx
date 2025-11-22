@@ -601,14 +601,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Video, User, FileText, Trash2 } from "lucide-react";
 import LiveClock from "@/app/components/LiveClock";
-import { BookViewer } from "@/app/components/BookViewer";
 import { CurrentBookViewerPretty } from "@/app/components/CurrentBookViewerPretty";
 import { toast } from "sonner";
-import dynamic from "next/dynamic";
-
-const LiveClocks = dynamic(() => import("@/app/components/LiveClock"), {
-  ssr: false,
-});
 
 type LessonRow = {
   scheduleId: Id<"schedules">;
@@ -628,7 +622,6 @@ export default function StudentDashboard() {
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const currentUser = useQuery(api.users.get);
 
-  // Redirect if no instrument selected yet
   useEffect(() => {
     if (currentUser && !currentUser.instrument) {
       router.replace("/onboarding/student");
@@ -657,7 +650,7 @@ export default function StudentDashboard() {
 
   if (!clerkLoaded || currentUser === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-black via-purple-950 to-black">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -670,7 +663,7 @@ export default function StudentDashboard() {
 
   if (!currentUser || currentUser.role !== "student") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -692,9 +685,8 @@ export default function StudentDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black">
+    <div className="min-h-screen bg-background dark:bg-gradient-to-b dark:from-black dark:via-purple-950 dark:to-black">
       <div className="container mx-auto p-6 max-w-7xl">
-        {/* Clock at the top */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -708,7 +700,7 @@ export default function StudentDashboard() {
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-5xl font-bold mb-12 text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-purple-400 to-purple-200 font-serif"
+          className="text-5xl font-bold mb-12 text-foreground dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-purple-200 dark:via-purple-400 dark:to-purple-200 font-serif"
         >
           Welcome back, {clerkUser?.firstName || "Student"}!
         </motion.h1>
@@ -719,9 +711,8 @@ export default function StudentDashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <Card className="mb-12 overflow-hidden shadow-[0_0_60px_rgba(168,85,247,0.3)] border-2 border-purple-800/30 bg-gradient-to-br from-purple-950 to-black">
-              <div className="bg-gradient-to-r from-purple-900 via-purple-800 to-black p-8 border-b border-purple-700/30 relative overflow-hidden">
-                {/* Animated background */}
+            <Card className="mb-12 overflow-hidden shadow-lg border-2 border-border dark:border-purple-800/30 bg-card dark:bg-gradient-purple-to-black dark:shadow-purple-original">
+              <div className="bg-gradient-to-r from-primary/20 via-primary/10 to-transparent dark:bg-gradient-purple-header p-8 border-b border-border dark:border-purple-700/30 relative overflow-hidden">
                 <motion.div
                   animate={{
                     opacity: [0.1, 0.2, 0.1],
@@ -737,30 +728,28 @@ export default function StudentDashboard() {
 
                 <div className="flex items-center gap-6 relative z-10">
                   <motion.div
-                    animate={{
-                      y: [0, -8, 0],
-                    }}
+                    animate={{ y: [0, -8, 0] }}
                     transition={{
                       duration: 3,
                       repeat: Infinity,
                       ease: "easeInOut",
                     }}
-                    className="bg-purple-800/30 backdrop-blur-sm rounded-2xl p-6 border-2 border-purple-700/50 shadow-[0_0_30px_rgba(168,85,247,0.4)]"
+                    className="bg-primary/10 dark:bg-purple-800/30 backdrop-blur-sm rounded-2xl p-6 border-2 border-primary/30 dark:border-purple-700/50 shadow-lg dark:shadow-purple-card"
                   >
-                    <FileText className="h-16 w-16 text-purple-300 drop-shadow-[0_0_10px_rgba(168,85,247,0.8)]" />
+                    <FileText className="h-16 w-16 text-primary dark:text-purple-300 dark:drop-shadow-[0_0_10px_rgba(168,85,247,0.8)]" />
                   </motion.div>
                   <div>
-                    <h2 className="text-4xl font-bold text-purple-100 font-serif">
+                    <h2 className="text-4xl font-bold text-card-foreground dark:text-purple-100 font-serif">
                       Your Current Book
                     </h2>
-                    <p className="text-xl text-purple-300/90 mt-2 font-serif italic">
+                    <p className="text-xl text-muted-foreground dark:text-purple-300/90 mt-2 font-serif italic">
                       Open and practice anytime
                     </p>
                   </div>
                 </div>
               </div>
 
-              <CardContent className="pt-0 bg-gradient-to-b from-transparent to-black/50">
+              <CardContent className="pt-0 bg-gradient-to-b from-transparent to-muted/20 dark:to-black/50">
                 <CurrentBookViewerPretty bookId={currentUser.currentBookId} />
               </CardContent>
             </Card>
@@ -771,7 +760,7 @@ export default function StudentDashboard() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <Card className="mb-12 border-dashed border-4 border-purple-700/50 bg-gradient-to-br from-purple-950/30 to-black/50 backdrop-blur-sm">
+            <Card className="mb-12 border-dashed border-4 border-muted dark:border-purple-700/50 bg-muted/30 dark:bg-purple-950/30 backdrop-blur-sm">
               <CardContent className="pt-24 pb-24 text-center">
                 <motion.div
                   animate={{
@@ -783,14 +772,14 @@ export default function StudentDashboard() {
                     repeat: Infinity,
                     ease: "easeInOut",
                   }}
-                  className="mx-auto w-32 h-40 bg-gradient-to-br from-purple-900/50 to-purple-950/50 rounded-2xl flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(168,85,247,0.3)] border-2 border-purple-700/30"
+                  className="mx-auto w-32 h-40 bg-muted dark:bg-purple-900/50 rounded-2xl flex items-center justify-center mb-8 shadow-lg dark:shadow-purple-card border-2 border-border dark:border-purple-700/30"
                 >
-                  <FileText className="h-20 w-20 text-purple-400 opacity-60" />
+                  <FileText className="h-20 w-20 text-muted-foreground dark:text-purple-400 opacity-60" />
                 </motion.div>
-                <p className="text-3xl font-bold text-purple-300 font-serif">
+                <p className="text-3xl font-bold text-foreground dark:text-purple-300 font-serif">
                   No book assigned yet
                 </p>
-                <p className="text-xl text-purple-400/80 mt-4 font-serif italic">
+                <p className="text-xl text-muted-foreground dark:text-purple-400/80 mt-4 font-serif italic">
                   Your teacher will choose your perfect book soon
                 </p>
               </CardContent>
@@ -798,30 +787,33 @@ export default function StudentDashboard() {
           </motion.div>
         )}
 
-        {/* Profile */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
-          <Card className="mb-8 bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+          <Card className="mb-8 bg-card dark:bg-gradient-purple-to-black border-2 border-border dark:border-purple-800/30 shadow-lg dark:shadow-purple-card">
             <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
-                <User className="h-7 w-7 text-purple-400" />
+              <CardTitle className="flex items-center gap-3 text-card-foreground dark:text-purple-200 font-serif text-2xl">
+                <User className="h-7 w-7 text-primary dark:text-purple-400" />
                 My Profile
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-purple-300">
+            <CardContent className="space-y-4 text-foreground dark:text-purple-300">
               <div className="font-serif">
-                <strong className="text-purple-200">Learning:</strong>{" "}
+                <strong className="text-foreground dark:text-purple-200">
+                  Learning:
+                </strong>{" "}
                 {currentUser.instrument}
               </div>
               <div className="font-serif">
-                <strong className="text-purple-200">Preferred teacher:</strong>{" "}
+                <strong className="text-foreground dark:text-purple-200">
+                  Preferred teacher:
+                </strong>{" "}
                 {currentUser.currentTeacher ? (
                   <TeacherName id={currentUser.currentTeacher} />
                 ) : (
-                  <span className="text-purple-400/70 italic">
+                  <span className="text-muted-foreground dark:text-purple-400/70 italic">
                     None — HR will assign you automatically
                   </span>
                 )}
@@ -830,20 +822,19 @@ export default function StudentDashboard() {
           </Card>
         </motion.div>
 
-        {/* Upcoming */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
         >
-          <Card className="mb-8 bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+          <Card className="mb-8 bg-card dark:bg-gradient-purple-to-black border-2 border-border dark:border-purple-800/30 shadow-lg dark:shadow-purple-card">
             <CardHeader>
-              <CardTitle className="flex items-center gap-3 text-purple-200 font-serif text-2xl">
-                <Video className="h-7 w-7 text-purple-400" />
+              <CardTitle className="flex items-center gap-3 text-card-foreground dark:text-purple-200 font-serif text-2xl">
+                <Video className="h-7 w-7 text-primary dark:text-purple-400" />
                 Upcoming Lessons
               </CardTitle>
               {upcomingLessons.length === 0 && (
-                <CardDescription className="text-purple-400/70 font-serif italic">
+                <CardDescription className="text-muted-foreground dark:text-purple-400/70 font-serif italic">
                   No lessons scheduled yet.
                 </CardDescription>
               )}
@@ -854,16 +845,15 @@ export default function StudentDashboard() {
           </Card>
         </motion.div>
 
-        {/* Past */}
         {pastLessons.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
           >
-            <Card className="mb-8 bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+            <Card className="mb-8 bg-card dark:bg-gradient-purple-to-black border-2 border-border dark:border-purple-800/30 shadow-lg dark:shadow-purple-card">
               <CardHeader>
-                <CardTitle className="text-purple-200 font-serif text-2xl">
+                <CardTitle className="text-card-foreground dark:text-purple-200 font-serif text-2xl">
                   Past Lessons
                 </CardTitle>
               </CardHeader>
@@ -874,18 +864,17 @@ export default function StudentDashboard() {
           </motion.div>
         )}
 
-        {/* Teacher selection */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.6 }}
         >
-          <Card className="bg-gradient-to-br from-purple-950 to-black border-2 border-purple-800/30 shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+          <Card className="bg-card dark:bg-gradient-purple-to-black border-2 border-border dark:border-purple-800/30 shadow-lg dark:shadow-purple-card">
             <CardHeader>
-              <CardTitle className="text-purple-200 font-serif text-2xl">
+              <CardTitle className="text-card-foreground dark:text-purple-200 font-serif text-2xl">
                 Choose / Change Preferred Teacher
               </CardTitle>
-              <CardDescription className="text-purple-400/70 font-serif">
+              <CardDescription className="text-muted-foreground dark:text-purple-400/70 font-serif">
                 Pick any teacher who teaches {currentUser.instrument}.
               </CardDescription>
             </CardHeader>
@@ -898,19 +887,19 @@ export default function StudentDashboard() {
                   transition={{ delay: 0.7 + index * 0.1 }}
                   whileHover={{ scale: 1.03, y: -3 }}
                 >
-                  <Card className="p-4 bg-gradient-to-br from-purple-900/40 to-black/60 border border-purple-700/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]">
-                    <div className="font-medium text-purple-200 font-serif">
+                  <Card className="p-4 bg-muted/50 dark:bg-purple-900/40 border border-border dark:border-purple-700/40 shadow dark:shadow-[0_0_20px_rgba(168,85,247,0.15)]">
+                    <div className="font-medium text-foreground dark:text-purple-200 font-serif">
                       {teacher.email}
                     </div>
                     {currentUser.currentTeacher === teacher._id && (
-                      <Badge className="mt-2 bg-purple-700 text-purple-100 border-purple-600">
+                      <Badge className="mt-2 bg-primary dark:bg-purple-700 text-primary-foreground dark:text-purple-100 border-primary dark:border-purple-600">
                         Current teacher
                       </Badge>
                     )}
                     <div className="mt-4 flex gap-2">
                       <Button
                         size="sm"
-                        className="flex-1 bg-purple-700 hover:bg-purple-600 text-purple-50 border border-purple-600/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                        className="flex-1 bg-primary hover:bg-primary/90 dark:bg-purple-700 dark:hover:bg-purple-600 text-primary-foreground dark:text-purple-50 border border-primary/50 dark:border-purple-600/50 shadow-lg dark:shadow-[0_0_15px_rgba(168,85,247,0.3)]"
                         variant={
                           currentUser.currentTeacher === teacher._id
                             ? "secondary"
@@ -927,7 +916,7 @@ export default function StudentDashboard() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-purple-600/50 text-purple-300 hover:bg-purple-800/30"
+                          className="border-border dark:border-purple-600/50 text-foreground dark:text-purple-300 hover:bg-muted dark:hover:bg-purple-800/30"
                           onClick={() => handleSetTeacher()}
                         >
                           Clear
@@ -938,7 +927,7 @@ export default function StudentDashboard() {
                 </motion.div>
               ))}
               {teachers.length === 0 && (
-                <p className="col-span-full text-center text-purple-400/70 font-serif italic">
+                <p className="col-span-full text-center text-muted-foreground dark:text-purple-400/70 font-serif italic">
                   No teachers available for {currentUser.instrument} yet.
                 </p>
               )}
@@ -950,18 +939,26 @@ export default function StudentDashboard() {
   );
 }
 
-// Reusable components
 function TeacherName({ id }: { id: Id<"users"> }) {
   const teacher = useQuery(api.users.getById, { id });
   return (
-    <span className="text-purple-300">{teacher?.email ?? "Loading..."}</span>
+    <span className="text-foreground dark:text-purple-300">
+      {teacher?.email ?? "Loading..."}
+    </span>
   );
 }
 
 function BookTitle({ id }: { id?: Id<"books"> }) {
   const book = useQuery(api.books.getById, id ? { id } : "skip");
-  if (!id) return <span className="text-purple-400/50">---</span>;
-  return <span className="text-purple-300">{book?.title ?? "Loading..."}</span>;
+  if (!id)
+    return (
+      <span className="text-muted-foreground dark:text-purple-400/50">---</span>
+    );
+  return (
+    <span className="text-foreground dark:text-purple-300">
+      {book?.title ?? "Loading..."}
+    </span>
+  );
 }
 
 function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
@@ -1005,9 +1002,8 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
           {lessons.map((l, index) => {
             const startMs = new Date(`${l.date}T${l.time}:00`).getTime();
             const isUpcoming = startMs >= now - 5 * 60 * 1000;
-            const isPast = startMs < now - 60 * 60 * 1000; // more than 1h ago
+            const isPast = startMs < now - 60 * 60 * 1000;
 
-            // Find the actual index in the schedule's lessons array
             const lessonIndex = lessons.findIndex(
               (lesson) =>
                 lesson.scheduleId === l.scheduleId && lesson.time === l.time
@@ -1019,15 +1015,15 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="border-b border-purple-800/20 hover:bg-purple-900/20"
+                className="border-b border-border dark:border-purple-800/20 hover:bg-muted/30 dark:hover:bg-purple-900/20"
               >
-                <TableCell className="text-purple-200 font-serif">
+                <TableCell className="text-foreground dark:text-purple-200 font-serif">
                   {format(startMs, "PPP")}
                 </TableCell>
-                <TableCell className="text-purple-200 font-serif">
+                <TableCell className="text-foreground dark:text-purple-200 font-serif">
                   {l.time}
                 </TableCell>
-                <TableCell className="text-purple-200 font-serif">
+                <TableCell className="text-foreground dark:text-purple-200 font-serif">
                   {l.duration} min
                 </TableCell>
                 <TableCell>
@@ -1041,8 +1037,8 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                     variant={isUpcoming ? "default" : "secondary"}
                     className={
                       isUpcoming
-                        ? "bg-purple-700 text-purple-100"
-                        : "bg-purple-800/50 text-purple-300"
+                        ? "bg-primary dark:bg-purple-700 text-primary-foreground dark:text-purple-100"
+                        : "bg-muted dark:bg-purple-800/50 text-foreground dark:text-purple-300"
                     }
                   >
                     {isPast ? "Past" : isUpcoming ? "Upcoming" : "Soon"}
@@ -1052,7 +1048,7 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                   <Button
                     variant="link"
                     size="sm"
-                    className="text-purple-400 hover:text-purple-300"
+                    className="text-primary hover:text-primary/80 dark:text-purple-400 dark:hover:text-purple-300"
                     asChild
                   >
                     <Link
@@ -1062,7 +1058,6 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                     </Link>
                   </Button>
 
-                  {/* Only show cancel button for upcoming lessons */}
                   {isUpcoming && !isPast && (
                     <Button
                       size="sm"
