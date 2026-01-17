@@ -1,0 +1,2043 @@
+// // convex/schedules.ts
+// import { v } from "convex/values";
+// import { mutation, query } from "./_generated/server";
+// import type { Doc, Id } from "./_generated/dataModel";
+// import { api } from "./_generated/api";
+
+// export const getAll = query({
+//   handler: async (ctx) => {
+//     return await ctx.db.query("schedules").collect();
+//   },
+// });
+
+// // ADMIN: Add a new lesson
+// export const addLesson = mutation({
+//   args: {
+//     teacherId: v.id("users"),
+//     date: v.string(), // YYYY-MM-DD
+//     lesson: v.object({
+//       studentId: v.id("users"),
+//       time: v.string(), // HH:MM
+//       duration: v.number(),
+//       // bookId supports either an Id or null; optional for backward compatibility when omitted
+//       bookId: v.optional(v.union(v.id("books"), v.null())),
+//       zoomLink: v.optional(v.string()),
+//       completed: v.boolean(),
+//       notes: v.optional(v.string()),
+//       actualStartTime: v.optional(v.number()),
+//       status: v.union(
+//         v.literal("completed"),
+//         v.literal("finished_early"),
+//         v.literal("na"),
+//         v.literal("teacher_late"),
+//         v.literal("technical_difficulty")
+//       ),
+//     }),
+//   },
+//   handler: async (ctx, args) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const caller = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+//     if (caller?.role !== "admin") throw new Error("Admin only");
+
+//     let schedule: Doc<"schedules"> | null = await ctx.db
+//       .query("schedules")
+//       .withIndex("by_teacher_date", (q) =>
+//         q.eq("teacherId", args.teacherId).eq("date", args.date)
+//       )
+//       .first();
+
+//     if (!schedule) {
+//       const newId = await ctx.db.insert("schedules", {
+//         teacherId: args.teacherId,
+//         date: args.date,
+//         lessons: [],
+//       });
+//       schedule = await ctx.db.get(newId);
+//       if (!schedule) throw new Error("Failed to create schedule");
+//     }
+
+//     const lessonId =
+//       Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+//     const newLesson = {
+//       ...args.lesson,
+//       bookId: args.lesson.bookId ?? null, // ✅ force null instead of undefined
+//       lessonId,
+//       actualStartTime: undefined,
+//       status: args.lesson.status ?? "completed",
+//     };
+
+//     // Sync current book to student profile if a bookId was provided and not null
+//     if (newLesson.bookId != null) {
+//       await ctx.db.patch(newLesson.studentId, {
+//         currentBookId: newLesson.bookId,
+//       });
+//     }
+
+//     await ctx.db.patch(schedule._id, {
+//       lessons: [...schedule.lessons, newLesson],
+//     });
+
+//     return { scheduleId: schedule._id, lessonId };
+//   },
+// });
+
+// // TEACHER: Start or update a lesson (this is where lateness is detected)
+// export const updateLesson = mutation({
+//   args: {
+//     scheduleId: v.id("schedules"),
+//     lessonId: v.string(),
+//     updates: v.object({
+//       zoomLink: v.optional(v.string()),
+//       completed: v.optional(v.boolean()),
+//       notes: v.optional(v.string()),
+//       bookId: v.optional(v.union(v.id("books"), v.null())),
+//       status: v.optional(
+//         v.union(
+//           v.literal("completed"),
+//           v.literal("finished_early"),
+//           v.literal("na"),
+//           v.literal("teacher_late"),
+//           v.literal("technical_difficulty")
+//         )
+//       ),
+//       forceStatus: v.optional(
+//         v.union(
+//           v.literal("completed"),
+//           v.literal("finished_early"),
+//           v.literal("na"),
+//           v.literal("teacher_late"),
+//           v.literal("technical_difficulty")
+//         )
+//       ),
+//     }),
+//   },
+
+//   handler: async (ctx, { scheduleId, lessonId, updates }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const teacher = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+
+//     if (!teacher || teacher.role !== "teacher")
+//       throw new Error("Only teachers can update lessons");
+
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule || schedule.teacherId !== teacher._id)
+//       throw new Error("Not your schedule");
+
+//     const lessonIndex = schedule.lessons.findIndex(
+//       (l) => l.lessonId === lessonId
+//     );
+//     if (lessonIndex === -1) throw new Error("Lesson not found");
+
+//     const oldLesson = schedule.lessons[lessonIndex];
+
+//     // ✅ SAFE MERGE — never let bookId become undefined
+//     const newLesson = {
+//       ...oldLesson,
+//       ...updates,
+//       bookId:
+//         updates.bookId !== undefined
+//           ? updates.bookId // ID or null
+//           : oldLesson.bookId, // keep existing
+//     };
+
+//     // AUTO DETECT LATENESS
+//     if (updates.status || !oldLesson.actualStartTime) {
+//       const now = Date.now();
+//       const [year, month, day] = schedule.date.split("-").map(Number);
+//       const [hour, minute] = oldLesson.time.split(":").map(Number);
+//       const scheduledTime = new Date(
+//         year,
+//         month - 1,
+//         day,
+//         hour,
+//         minute
+//       ).getTime();
+
+//       const isLate = now > scheduledTime + 60000;
+
+//       if (!oldLesson.actualStartTime) {
+//         newLesson.actualStartTime = now;
+//       }
+
+//       if (isLate && !updates.forceStatus) {
+//         newLesson.status = "teacher_late";
+//       }
+//     }
+
+//     if (updates.forceStatus) {
+//       newLesson.status = updates.forceStatus;
+//     }
+//     // NEW: Deduct minutes when lesson is completed
+//     if (updates.completed && !oldLesson.completed) {
+//       const student = await ctx.db.get(oldLesson.studentId);
+//       if (student) {
+//         const activePackage = await ctx.runQuery(
+//           api.studentPackages.getActivePackage,
+//           { studentId: student._id }
+//         );
+
+//         if (activePackage) {
+//           await ctx.runMutation(api.studentPackages.deductMinutes, {
+//             packageId: activePackage._id,
+//             minutesUsed: oldLesson.duration,
+//           });
+//         }
+//       }
+//     }
+
+//     // SYNC STUDENT currentBookId
+//     if ("bookId" in updates) {
+//       await ctx.db.patch(oldLesson.studentId, {
+//         currentBookId: updates.bookId ?? undefined,
+//       });
+//     }
+
+//     const updatedLessons = [...schedule.lessons];
+//     updatedLessons[lessonIndex] = newLesson;
+
+//     await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+//     return updatedLessons[lessonIndex];
+//   },
+// });
+
+// // Get lessons by student (for student dashboard)
+// export const getByStudent = query({
+//   args: { studentId: v.id("users") },
+//   handler: async (ctx, { studentId }) => {
+//     const allSchedules = await ctx.db.query("schedules").collect();
+
+//     const lessons: Array<{
+//       scheduleId: Id<"schedules">;
+//       lessonId: string;
+//       date: string;
+//       time: string;
+//       duration: number;
+//       teacherId: Id<"users">;
+//       // bookId may be Id or null
+//       bookId?: Id<"books"> | null;
+//       zoomLink?: string;
+//       completed: boolean;
+//       notes?: string;
+//       actualStartTime?: number;
+//       status:
+//         | "completed"
+//         | "finished_early"
+//         | "na"
+//         | "teacher_late"
+//         | "technical_difficulty";
+//     }> = [];
+
+//     for (const sched of allSchedules) {
+//       for (const lesson of sched.lessons) {
+//         if (lesson.studentId === studentId) {
+//           lessons.push({
+//             scheduleId: sched._id,
+//             lessonId: lesson.lessonId,
+//             date: sched.date,
+//             time: lesson.time,
+//             duration: lesson.duration,
+//             teacherId: sched.teacherId,
+//             bookId: lesson.bookId,
+//             zoomLink: lesson.zoomLink,
+//             completed: lesson.completed,
+//             notes: lesson.notes,
+//             actualStartTime: lesson.actualStartTime,
+//             status: lesson.status,
+//           });
+//         }
+//       }
+//     }
+
+//     lessons.sort((a, b) =>
+//       `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
+//     );
+
+//     return lessons;
+//   },
+// });
+
+// export const getByTeacher = query({
+//   args: { teacherId: v.id("users") },
+//   handler: async (ctx, { teacherId }) => {
+//     return await ctx.db
+//       .query("schedules")
+//       .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+//       .order("desc")
+//       .collect();
+//   },
+// });
+
+// export const getLesson = query({
+//   args: { scheduleId: v.id("schedules"), lessonId: v.string() },
+//   handler: async (ctx, { scheduleId, lessonId }) => {
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule) return null;
+//     const lesson = schedule.lessons.find((l) => l.lessonId === lessonId);
+//     if (!lesson) return null;
+//     return { ...lesson, date: schedule.date, teacherId: schedule.teacherId };
+//   },
+// });
+
+// export const deleteLesson = mutation({
+//   args: { scheduleId: v.id("schedules"), lessonIndex: v.number() },
+//   handler: async (ctx, { scheduleId, lessonIndex }) => {
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule) throw new Error("Schedule not found");
+
+//     schedule.lessons.splice(lessonIndex, 1);
+
+//     if (schedule.lessons.length === 0) {
+//       await ctx.db.delete(scheduleId);
+//     } else {
+//       await ctx.db.patch(scheduleId, { lessons: schedule.lessons });
+//     }
+//   },
+// });
+
+// export const getByTeacherWithTimezones = query({
+//   args: { teacherId: v.id("users") },
+//   handler: async (ctx, { teacherId }) => {
+//     const schedules = await ctx.db
+//       .query("schedules")
+//       .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+//       .order("desc")
+//       .collect();
+
+//     const enrichedSchedules = await Promise.all(
+//       schedules.map(async (schedule) => {
+//         const lessonsWithStudentTz = await Promise.all(
+//           schedule.lessons.map(async (lesson) => {
+//             const student = await ctx.db.get(lesson.studentId);
+//             return {
+//               ...lesson,
+//               studentTimezone: student?.timezone,
+//               studentCountry: student?.country,
+//             };
+//           })
+//         );
+//         return { ...schedule, lessons: lessonsWithStudentTz };
+//       })
+//     );
+
+//     return enrichedSchedules;
+//   },
+// });
+
+// export const getLatenessStats = query({
+//   args: { teacherId: v.id("users") },
+//   handler: async (ctx, { teacherId }) => {
+//     const schedules = await ctx.db
+//       .query("schedules")
+//       .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+//       .collect();
+
+//     let totalLessons = 0;
+//     let lateCount = 0;
+
+//     for (const sched of schedules) {
+//       for (const lesson of sched.lessons) {
+//         if (lesson.actualStartTime) {
+//           totalLessons++;
+//           const scheduled = new Date(
+//             `${sched.date}T${lesson.time}:00`
+//           ).getTime();
+//           if (lesson.actualStartTime > scheduled + 60000) lateCount++;
+//         }
+//       }
+//     }
+
+//     return {
+//       totalLessons,
+//       lateCount,
+//       latePercentage: (lateCount / totalLessons) * 100 || 0,
+//     };
+//   },
+// });
+
+// export const getLessonWithBook = query({
+//   args: { scheduleId: v.id("schedules"), lessonId: v.string() },
+//   handler: async (ctx, { scheduleId, lessonId }) => {
+//     const schedule = await ctx.db.get(scheduleId);
+
+//     if (!schedule) return null;
+
+//     // Convex reactivity trick: explicitly touch bookId for each lesson so Convex tracks changes
+//     const lessons = schedule.lessons.map((l) => ({
+//       lessonId: l.lessonId,
+//       bookId: l.bookId,
+//     }));
+
+//     const lesson = schedule.lessons.find((l) => l.lessonId === lessonId);
+//     if (!lesson) return null;
+
+//     const book = lesson.bookId ? await ctx.db.get(lesson.bookId) : null;
+
+//     return {
+//       ...lesson,
+//       date: schedule.date,
+//       teacherId: schedule.teacherId,
+//       bookTitle: book?.title,
+//       bookInstrument: book?.instrument,
+//       bookLevel: book?.levelNumber,
+//       driveViewLink: book?.driveViewLink,
+//       driveDownloadLink: book?.driveDownloadLink,
+//     };
+//   },
+// });
+// convex/schedules.ts
+// import { v } from "convex/values";
+// import { internalMutation, mutation, query } from "./_generated/server";
+// import type { Doc, Id } from "./_generated/dataModel";
+// import { api } from "./_generated/api";
+
+// // NEW: Define types for clarity (matches schema)
+// type LessonState =
+//   | "scheduled"
+//   | "in_progress"
+//   | "completed"
+//   | "missed_teacher"
+//   | "missed_student";
+
+// type LessonStatus =
+//   | "completed"
+//   | "finished_early"
+//   | "na"
+//   | "teacher_late"
+//   | "technical_difficulty";
+
+// export type Lesson = {
+//   lessonId: string;
+//   studentId: Id<"users">;
+//   time: string;
+//   duration: number;
+//   bookId: Id<"books"> | null;
+//   zoomLink?: string;
+//   completed: boolean;
+//   notes?: string;
+//   startedAt?: number;
+//   status: LessonStatus;
+//   // NEW FIELDS
+//   state: LessonState;
+//   endedAt?: number;
+//   actualMinutes?: number;
+//   onTime?: boolean;
+//   joinedAt?: number; // NEW: For student join detection
+// };
+
+// export const getAll = query({
+//   handler: async (ctx) => {
+//     return await ctx.db.query("schedules").collect();
+//   },
+// });
+
+// // ADMIN: Add a new lesson
+// export const addLesson = mutation({
+//   args: {
+//     teacherId: v.id("users"),
+//     date: v.string(), // YYYY-MM-DD
+//     lesson: v.object({
+//       studentId: v.id("users"),
+//       time: v.string(), // HH:MM
+//       duration: v.number(),
+//       // bookId supports either an Id or null; optional in omitted
+//       bookId: v.optional(v.union(v.id("books"), v.null())),
+//       zoomLink: v.optional(v.string()),
+//       completed: v.boolean(),
+//       notes: v.optional(v.string()),
+//       // RENAMED: startedAt instead of actualStartTime
+//       startedAt: v.optional(v.number()),
+//       status: v.union(
+//         v.literal("completed"),
+//         v.literal("finished_early"),
+//         v.literal("na"),
+//         v.literal("teacher_late"),
+//         v.literal("technical_difficulty")
+//       ),
+//       // NEW FIELDS (optional in args, defaulted below)
+//       state: v.optional(
+//         v.union(
+//           v.literal("scheduled"),
+//           v.literal("in_progress"),
+//           v.literal("completed"),
+//           v.literal("missed_teacher"),
+//           v.literal("missed_student")
+//         )
+//       ),
+//       endedAt: v.optional(v.number()),
+//       actualMinutes: v.optional(v.number()),
+//       onTime: v.optional(v.boolean()),
+//       joinedAt: v.optional(v.number()), // NEW
+//     }),
+//   },
+//   handler: async (ctx, args) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const caller = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+//     if (caller?.role !== "admin") throw new Error("Admin only");
+
+//     let schedule: Doc<"schedules"> | null = await ctx.db
+//       .query("schedules")
+//       .withIndex("by_teacher_date", (q) =>
+//         q.eq("teacherId", args.teacherId).eq("date", args.date)
+//       )
+//       .first();
+
+//     if (!schedule) {
+//       const newId = await ctx.db.insert("schedules", {
+//         teacherId: args.teacherId,
+//         date: args.date,
+//         lessons: [],
+//       });
+//       schedule = await ctx.db.get(newId);
+//       if (!schedule) throw new Error("Failed to create schedule");
+//     }
+
+//     const lessonId =
+//       Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+//     const newLesson: Lesson = {
+//       ...args.lesson,
+//       bookId: args.lesson.bookId ?? null, // ✅ force null instead of undefined
+//       lessonId,
+//       // RENAMED: startedAt defaults to undefined
+//       startedAt: args.lesson.startedAt ?? undefined,
+//       status: args.lesson.status ?? ("na" as const),
+//       // NEW DEFAULTS
+//       state: args.lesson.state ?? ("scheduled" as const),
+//       endedAt: args.lesson.endedAt ?? undefined,
+//       actualMinutes: args.lesson.actualMinutes ?? undefined,
+//       onTime: args.lesson.onTime ?? undefined,
+//       joinedAt: args.lesson.joinedAt ?? undefined, // NEW
+//     };
+
+//     // Sync current book to student profile if a bookId was provided and not null
+//     if (newLesson.bookId != null) {
+//       await ctx.db.patch(newLesson.studentId, {
+//         currentBookId: newLesson.bookId,
+//       });
+//     }
+
+//     await ctx.db.patch(schedule._id, {
+//       lessons: [...schedule.lessons, newLesson],
+//     });
+
+//     return { scheduleId: schedule._id, lessonId };
+//   },
+// });
+
+// // TEACHER: Start a lesson (sets to in_progress, detects lateness)
+// export const startLesson = mutation({
+//   args: {
+//     scheduleId: v.id("schedules"),
+//     lessonId: v.string(),
+//   },
+//   handler: async (ctx, { scheduleId, lessonId }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const teacher = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+
+//     if (!teacher || teacher.role !== "teacher")
+//       throw new Error("Only teachers can start lessons");
+
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule || schedule.teacherId !== teacher._id)
+//       throw new Error("Not your schedule");
+
+//     const lessonIndex = schedule.lessons.findIndex(
+//       (l) => l.lessonId === lessonId
+//     );
+//     if (lessonIndex === -1) throw new Error("Lesson not found");
+
+//     const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+
+//     if (oldLesson.state !== "scheduled") {
+//       throw new Error("Lesson can only be started from scheduled state");
+//     }
+
+//     const now = Date.now();
+//     const [year, month, day] = schedule.date.split("-").map(Number);
+//     const [hour, minute] = oldLesson.time.split(":").map(Number);
+//     const scheduledTime = new Date(
+//       year,
+//       month - 1,
+//       day,
+//       hour,
+//       minute
+//     ).getTime();
+
+//     const isOnTime = now <= scheduledTime + 60000; // 1 min grace
+
+//     const newLesson: Lesson = {
+//       ...oldLesson,
+//       state: "in_progress" as const,
+//       startedAt: now,
+//       onTime: isOnTime,
+//       status: isOnTime ? "na" : ("teacher_late" as const),
+//     };
+
+//     const updatedLessons = [...schedule.lessons];
+//     updatedLessons[lessonIndex] = newLesson;
+
+//     await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+//     return { success: true, onTime: isOnTime };
+//   },
+// });
+
+// // TEACHER: End a lesson (sets to completed, computes duration)
+// export const endLesson = mutation({
+//   args: {
+//     scheduleId: v.id("schedules"),
+//     lessonId: v.string(),
+//     status: v.optional(
+//       v.union(
+//         v.literal("completed"),
+//         v.literal("finished_early"),
+//         v.literal("teacher_late"),
+//         v.literal("technical_difficulty")
+//       )
+//     ),
+//   },
+//   handler: async (ctx, { scheduleId, lessonId, status }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const caller = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+
+//     if (!caller || (caller.role !== "teacher" && caller.role !== "admin"))
+//       throw new Error("Only teachers or admins can end lessons");
+
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule) throw new Error("Schedule not found");
+
+//     if (caller.role === "teacher" && schedule.teacherId !== caller._id) {
+//       throw new Error("Not your schedule");
+//     }
+
+//     const lessonIndex = schedule.lessons.findIndex(
+//       (l) => l.lessonId === lessonId
+//     );
+//     if (lessonIndex === -1) throw new Error("Lesson not found");
+
+//     const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+//     if (oldLesson.state !== "in_progress")
+//       throw new Error("Lesson can only be ended from in_progress state");
+
+//     const now = Date.now();
+//     const actualMinutes = Math.round(
+//       (now - (oldLesson.startedAt ?? 0)) / 60000
+//     );
+
+//     const isFullDuration = actualMinutes >= oldLesson.duration * 0.8;
+
+//     const finalStatus =
+//       status ??
+//       (oldLesson.onTime === false
+//         ? ("teacher_late" as const)
+//         : !isFullDuration
+//           ? ("finished_early" as const)
+//           : ("completed" as const));
+
+//     const newLesson: Lesson = {
+//       ...oldLesson,
+//       state: "completed" as const,
+//       status: finalStatus,
+//       endedAt: now,
+//       actualMinutes,
+//     };
+
+//     const updatedLessons = [...schedule.lessons];
+//     updatedLessons[lessonIndex] = newLesson;
+
+//     await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+//     // Deduct minutes from student package (use actualMinutes)
+//     const student = await ctx.db.get(oldLesson.studentId);
+//     if (student) {
+//       // Assuming schema has remainingMinutes now; use custom mutation if available
+//       const activePackage = await ctx.db
+//         .query("studentPackages")
+//         .withIndex("by_student", (q) => q.eq("studentId", student._id))
+//         .filter((q) =>
+//           q.and(
+//             q.eq(q.field("status"), "active"),
+//             q.gt(q.field("remainingMinutes"), 0)
+//           )
+//         )
+//         .first();
+//       if (activePackage) {
+//         await ctx.db.patch(activePackage._id, {
+//           remainingMinutes: Math.max(
+//             0,
+//             activePackage.remainingMinutes -
+//               (actualMinutes ?? oldLesson.duration)
+//           ),
+//         });
+//       }
+//     }
+//     return { success: true, status: finalStatus, actualMinutes };
+//   },
+// });
+
+// // TEACHER/ADMIN: General updates (notes, bookId, zoomLink, manual status/state overrides)
+// export const updateLesson = mutation({
+//   args: {
+//     scheduleId: v.id("schedules"),
+//     lessonId: v.string(),
+//     updates: v.object({
+//       zoomLink: v.optional(v.string()),
+//       notes: v.optional(v.string()),
+//       bookId: v.optional(v.union(v.id("books"), v.null())),
+//       // Allow manual state changes (e.g., for missed)
+//       state: v.optional(
+//         v.union(
+//           v.literal("scheduled"),
+//           v.literal("in_progress"),
+//           v.literal("completed"),
+//           v.literal("missed_teacher"),
+//           v.literal("missed_student")
+//         )
+//       ),
+//       // Allow force status
+//       forceStatus: v.optional(
+//         v.union(
+//           v.literal("completed"),
+//           v.literal("finished_early"),
+//           v.literal("na"),
+//           v.literal("teacher_late"),
+//           v.literal("technical_difficulty")
+//         )
+//       ),
+//     }),
+//   },
+//   handler: async (ctx, { scheduleId, lessonId, updates }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const caller = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+
+//     if (!caller || (caller.role !== "teacher" && caller.role !== "admin"))
+//       throw new Error("Only teachers or admins can update lessons");
+
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule) throw new Error("Schedule not found");
+
+//     // Teachers can only update their own; admins can update any
+//     if (caller.role === "teacher" && schedule.teacherId !== caller._id) {
+//       throw new Error("Not your schedule");
+//     }
+
+//     const lessonIndex = schedule.lessons.findIndex(
+//       (l) => l.lessonId === lessonId
+//     );
+//     if (lessonIndex === -1) throw new Error("Lesson not found");
+
+//     const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+
+//     if (updates.state && caller.role !== "admin") {
+//       throw new Error("Only admins can manually override state");
+//     }
+
+//     // ✅ SAFE MERGE — never let bookId become undefined
+//     const newLesson: Lesson = {
+//       ...oldLesson,
+//       ...updates,
+//       bookId:
+//         updates.bookId !== undefined
+//           ? updates.bookId // ID or null
+//           : oldLesson.bookId, // keep existing
+//       status: updates.forceStatus ?? oldLesson.status,
+//       state: updates.state ?? oldLesson.state,
+//     };
+
+//     // SYNC STUDENT currentBookId
+//     if ("bookId" in updates) {
+//       await ctx.db.patch(oldLesson.studentId, {
+//         currentBookId: updates.bookId ?? undefined,
+//       });
+//     }
+
+//     const updatedLessons = [...schedule.lessons];
+//     updatedLessons[lessonIndex] = newLesson;
+
+//     await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+//     return updatedLessons[lessonIndex];
+//   },
+// });
+
+// // STUDENT: Join a lesson (sets joinedAt for no-show detection)
+// export const studentJoin = mutation({
+//   args: {
+//     scheduleId: v.id("schedules"),
+//     lessonId: v.string(),
+//   },
+//   handler: async (ctx, { scheduleId, lessonId }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const student = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+
+//     if (!student || student.role !== "student")
+//       throw new Error("Only students can join lessons");
+
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule) throw new Error("Schedule not found");
+
+//     const lessonIndex = schedule.lessons.findIndex(
+//       (l) => l.lessonId === lessonId
+//     );
+//     if (lessonIndex === -1) throw new Error("Lesson not found");
+
+//     const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+//     if (oldLesson.studentId !== student._id) throw new Error("Not your lesson");
+
+//     if (oldLesson.state !== "in_progress") {
+//       throw new Error("Can only join in-progress lessons");
+//     }
+
+//     const newLesson: Lesson = {
+//       ...oldLesson,
+//       joinedAt: Date.now(),
+//     };
+
+//     const updatedLessons = [...schedule.lessons];
+//     updatedLessons[lessonIndex] = newLesson;
+
+//     await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+//     return newLesson;
+//   },
+// });
+
+// // Get lessons by student (for student dashboard)
+// export const getByStudent = query({
+//   args: { studentId: v.id("users") },
+//   handler: async (ctx, { studentId }) => {
+//     const allSchedules = await ctx.db.query("schedules").collect();
+
+//     const lessons: Array<{
+//       scheduleId: Id<"schedules">;
+//       lessonId: string;
+//       date: string;
+//       time: string;
+//       duration: number;
+//       teacherId: Id<"users">;
+//       // bookId may be Id or null
+//       bookId?: Id<"books"> | null;
+//       zoomLink?: string;
+//       completed: boolean;
+//       notes?: string;
+//       // RENAMED
+//       startedAt?: number;
+//       status: LessonStatus;
+//       // NEW FIELDS
+//       state: LessonState;
+//       endedAt?: number;
+//       actualMinutes?: number;
+//       onTime?: boolean;
+//       joinedAt?: number; // NEW
+//     }> = [];
+
+//     for (const sched of allSchedules) {
+//       for (const lesson of sched.lessons as Lesson[]) {
+//         if (lesson.studentId === studentId) {
+//           lessons.push({
+//             scheduleId: sched._id,
+//             lessonId: lesson.lessonId,
+//             date: sched.date,
+//             time: lesson.time,
+//             duration: lesson.duration,
+//             teacherId: sched.teacherId,
+//             bookId: lesson.bookId,
+//             zoomLink: lesson.zoomLink,
+//             completed: lesson.completed,
+//             notes: lesson.notes,
+//             startedAt: lesson.startedAt,
+//             status: lesson.status,
+//             state: lesson.state,
+//             endedAt: lesson.endedAt,
+//             actualMinutes: lesson.actualMinutes,
+//             onTime: lesson.onTime,
+//             joinedAt: lesson.joinedAt, // NEW
+//           });
+//         }
+//       }
+//     }
+
+//     lessons.sort((a, b) =>
+//       `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)
+//     );
+
+//     return lessons;
+//   },
+// });
+
+// export const getByTeacher = query({
+//   args: { teacherId: v.id("users") },
+//   handler: async (ctx, { teacherId }) => {
+//     return await ctx.db
+//       .query("schedules")
+//       .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+//       .order("desc")
+//       .collect();
+//   },
+// });
+
+// export const getLesson = query({
+//   args: { scheduleId: v.id("schedules"), lessonId: v.string() },
+//   handler: async (ctx, { scheduleId, lessonId }) => {
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule) return null;
+//     const lesson = schedule.lessons.find((l) => l.lessonId === lessonId) as
+//       | Lesson
+//       | undefined;
+//     if (!lesson) return null;
+//     return { ...lesson, date: schedule.date, teacherId: schedule.teacherId };
+//   },
+// });
+
+// // Replace your current deleteLesson mutation in schedules.ts with this:
+
+// export const deleteLesson = mutation({
+//   args: {
+//     scheduleId: v.id("schedules"),
+//     lessonId: v.string(), // Changed from lessonIndex to lessonId
+//   },
+//   handler: async (ctx, { scheduleId, lessonId }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const caller = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+
+//     // Allow students to cancel their own lessons, or teachers/admins to cancel any
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule) throw new Error("Schedule not found");
+
+//     const lessonIndex = schedule.lessons.findIndex(
+//       (l) => l.lessonId === lessonId
+//     );
+//     if (lessonIndex === -1) throw new Error("Lesson not found");
+
+//     const lesson = schedule.lessons[lessonIndex] as Lesson;
+
+//     // Authorization check
+//     if (caller?.role === "student") {
+//       if (lesson.studentId !== caller._id) {
+//         throw new Error("You can only cancel your own lessons");
+//       }
+//       if (lesson.state !== "scheduled") {
+//         throw new Error("You can only cancel scheduled lessons");
+//       }
+//     } else if (caller?.role !== "teacher" && caller?.role !== "admin") {
+//       throw new Error("Unauthorized");
+//     }
+
+//     // Remove the lesson
+//     const updatedLessons = [...schedule.lessons];
+//     updatedLessons.splice(lessonIndex, 1);
+
+//     if (updatedLessons.length === 0) {
+//       await ctx.db.delete(scheduleId);
+//     } else {
+//       await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+//     }
+
+//     return { success: true };
+//   },
+// });
+
+// export const getByTeacherWithTimezones = query({
+//   args: { teacherId: v.id("users") },
+//   handler: async (ctx, { teacherId }) => {
+//     const schedules = await ctx.db
+//       .query("schedules")
+//       .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+//       .order("desc")
+//       .collect();
+
+//     const enrichedSchedules = await Promise.all(
+//       schedules.map(async (schedule) => {
+//         const lessonsWithStudentTz = await Promise.all(
+//           schedule.lessons.map(async (lesson) => {
+//             const student = await ctx.db.get(lesson.studentId);
+//             return {
+//               ...lesson,
+//               studentTimezone: student?.timezone,
+//               studentCountry: student?.country,
+//             };
+//           })
+//         );
+//         return { ...schedule, lessons: lessonsWithStudentTz };
+//       })
+//     );
+
+//     return enrichedSchedules;
+//   },
+// });
+
+// // In schedules.ts - add a new mutation
+// export const markMissed = mutation({
+//   args: {
+//     scheduleId: v.id("schedules"),
+//     lessonId: v.string(),
+//     missedBy: v.union(v.literal("teacher"), v.literal("student")),
+//   },
+//   handler: async (ctx, { scheduleId, lessonId, missedBy }) => {
+//     const identity = await ctx.auth.getUserIdentity();
+//     if (!identity) throw new Error("Unauthorized");
+
+//     const caller = await ctx.db
+//       .query("users")
+//       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+//       .first();
+
+//     if (!caller || (caller.role !== "teacher" && caller.role !== "admin"))
+//       throw new Error("Only teachers or admins can mark missed lessons");
+
+//     const schedule = await ctx.db.get(scheduleId);
+//     if (!schedule) throw new Error("Schedule not found");
+
+//     if (caller.role === "teacher" && schedule.teacherId !== caller._id) {
+//       throw new Error("Not your schedule");
+//     }
+
+//     const lessonIndex = schedule.lessons.findIndex(
+//       (l) => l.lessonId === lessonId
+//     );
+//     if (lessonIndex === -1) throw new Error("Lesson not found");
+
+//     const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+
+//     if (!["scheduled", "in_progress"].includes(oldLesson.state)) {
+//       throw new Error("Can only mark missed from scheduled or in_progress");
+//     }
+
+//     const newState: LessonState =
+//       missedBy === "teacher" ? "missed_teacher" : "missed_student";
+
+//     const newLesson: Lesson = {
+//       ...oldLesson,
+//       state: newState,
+//       status: "na" as const,
+//     };
+
+//     // For in_progress, set endedAt if marking missed_student
+//     if (oldLesson.state === "in_progress" && missedBy === "student") {
+//       newLesson.endedAt = Date.now();
+//       newLesson.actualMinutes = Math.round(
+//         ((newLesson.endedAt ?? 0) - (oldLesson.startedAt ?? 0)) / 60000
+//       );
+//     }
+
+//     const updatedLessons = [...schedule.lessons];
+//     updatedLessons[lessonIndex] = newLesson;
+
+//     await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+//   },
+// });
+
+// // In schedules.ts - add internal mutation
+// export const checkMissedLessons = internalMutation({
+//   handler: async (ctx) => {
+//     const now = Date.now();
+//     const recentSchedules = await ctx.db
+//       .query("schedules")
+//       .filter((q) => {
+//         const cutoff = new Date();
+//         cutoff.setDate(cutoff.getDate() - 1); // Only check last 24h
+//         return q.gte(q.field("date"), cutoff.toISOString().split("T")[0]);
+//       })
+//       .collect();
+
+//     for (const sched of recentSchedules) {
+//       let needsUpdate = false;
+//       const updatedLessons = [...sched.lessons] as Lesson[];
+
+//       for (let i = 0; i < updatedLessons.length; i++) {
+//         const lesson = updatedLessons[i];
+//         const [year, month, day] = sched.date.split("-").map(Number);
+//         const [hour, minute] = lesson.time.split(":").map(Number);
+//         const scheduledTime = new Date(
+//           year,
+//           month - 1,
+//           day,
+//           hour,
+//           minute
+//         ).getTime();
+
+//         // Check for missed teacher (10 min grace period)
+//         if (
+//           lesson.state === "scheduled" &&
+//           now > scheduledTime + 10 * 60 * 1000
+//         ) {
+//           updatedLessons[i] = {
+//             ...lesson,
+//             state: "missed_teacher" as const,
+//             status: "na" as const,
+//           };
+//           needsUpdate = true;
+//         }
+
+//         // Check for missed student (5 min after start, no joinedAt)
+//         if (
+//           lesson.state === "in_progress" &&
+//           lesson.startedAt &&
+//           now > lesson.startedAt + 5 * 60 * 1000 &&
+//           lesson.joinedAt === undefined
+//         ) {
+//           updatedLessons[i] = {
+//             ...lesson,
+//             state: "missed_student" as const,
+//             status: "na" as const,
+//             endedAt: now,
+//             actualMinutes: 0,
+//           };
+//           needsUpdate = true;
+//         }
+
+//         // Auto-complete stuck lessons (duration + 30 min buffer)
+//         if (
+//           lesson.state === "in_progress" &&
+//           lesson.startedAt &&
+//           now > lesson.startedAt + (lesson.duration + 30) * 60 * 1000
+//         ) {
+//           updatedLessons[i] = {
+//             ...lesson,
+//             state: "completed" as const,
+//             status:
+//               lesson.onTime === false
+//                 ? ("teacher_late" as const)
+//                 : ("completed" as const),
+//             endedAt: now,
+//             actualMinutes: Math.round((now - lesson.startedAt) / 60000),
+//           };
+//           needsUpdate = true;
+//         }
+//       }
+
+//       if (needsUpdate) {
+//         await ctx.db.patch(sched._id, { lessons: updatedLessons });
+//       }
+//     }
+//   },
+// });
+
+// export const getLatenessStats = query({
+//   args: { teacherId: v.id("users") },
+//   handler: async (ctx, { teacherId }) => {
+//     const schedules = await ctx.db
+//       .query("schedules")
+//       .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+//       .collect();
+
+//     let totalLessons = 0;
+//     let lateCount = 0;
+
+//     for (const sched of schedules) {
+//       for (const lesson of sched.lessons as Lesson[]) {
+//         if (lesson.startedAt !== undefined && lesson.onTime !== undefined) {
+//           totalLessons++;
+//           if (!lesson.onTime) lateCount++;
+//         }
+//       }
+//     }
+
+//     return {
+//       totalLessons,
+//       lateCount,
+//       latePercentage: (lateCount / totalLessons) * 100 || 0,
+//     };
+//   },
+// });
+
+// export const getLessonWithBook = query({
+//   args: { scheduleId: v.id("schedules"), lessonId: v.string() },
+//   handler: async (ctx, { scheduleId, lessonId }) => {
+//     const schedule = await ctx.db.get(scheduleId);
+
+//     if (!schedule) return null;
+
+//     // Convex reactivity trick: explicitly touch bookId for each lesson so Convex tracks changes
+//     const lessons = schedule.lessons.map((l) => ({
+//       lessonId: l.lessonId,
+//       bookId: l.bookId,
+//     }));
+
+//     const lesson = schedule.lessons.find((l) => l.lessonId === lessonId) as
+//       | Lesson
+//       | undefined;
+//     if (!lesson) return null;
+
+//     const book = lesson.bookId ? await ctx.db.get(lesson.bookId) : null;
+
+//     return {
+//       ...lesson,
+//       date: schedule.date,
+//       teacherId: schedule.teacherId,
+//       bookTitle: book?.title,
+//       bookInstrument: book?.instrument,
+//       bookLevel: book?.levelNumber,
+//       driveViewLink: book?.driveViewLink,
+//       driveDownloadLink: book?.driveDownloadLink,
+//     };
+//   },
+// });
+import { v } from "convex/values";
+import { internalMutation, mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { api } from "./_generated/api";
+
+// UPDATED: New types matching new payment rules
+type LessonState =
+  | "scheduled"
+  | "in_progress"
+  | "completed"
+  | "missed_teacher"
+  | "missed_student";
+
+type LessonStatus =
+  | "completed" // Full pay
+  | "finished_early" // Full pay - student requested
+  | "no_answer_on_time" // Full pay - teacher on time, student no-show
+  | "teacher_never_called" // $20 deduction - teacher missed
+  | "technical_difficulty" // No pay from either side
+  | "teacher_late"; // Full pay - $5 deduction
+
+export type Lesson = {
+  lessonId: string;
+  studentId: Id<"users">;
+  time: string;
+  duration: number;
+  bookId: Id<"books"> | null;
+  zoomLink?: string;
+  completed: boolean;
+  notes?: string;
+  startedAt?: number;
+  status: LessonStatus;
+  state: LessonState;
+  endedAt?: number;
+  actualMinutes?: number;
+  onTime?: boolean;
+  joinedAt?: number;
+};
+
+export const getAll = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("schedules").collect();
+  },
+});
+
+// ADMIN: Add a new lesson
+export const addLesson = mutation({
+  args: {
+    teacherId: v.id("users"),
+    date: v.string(),
+    lesson: v.object({
+      studentId: v.id("users"),
+      time: v.string(),
+      duration: v.number(),
+      bookId: v.optional(v.union(v.id("books"), v.null())),
+      zoomLink: v.optional(v.string()),
+      completed: v.boolean(),
+      notes: v.optional(v.string()),
+      startedAt: v.optional(v.number()),
+      status: v.union(
+        v.literal("completed"),
+        v.literal("finished_early"),
+        v.literal("no_answer_on_time"),
+        v.literal("teacher_never_called"),
+        v.literal("technical_difficulty"),
+        v.literal("teacher_late"),
+      ),
+      state: v.optional(
+        v.union(
+          v.literal("scheduled"),
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("missed_teacher"),
+          v.literal("missed_student"),
+        ),
+      ),
+      endedAt: v.optional(v.number()),
+      actualMinutes: v.optional(v.number()),
+      onTime: v.optional(v.boolean()),
+      joinedAt: v.optional(v.number()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (caller?.role !== "admin") throw new Error("Admin only");
+
+    let schedule: Doc<"schedules"> | null = await ctx.db
+      .query("schedules")
+      .withIndex("by_teacher_date", (q) =>
+        q.eq("teacherId", args.teacherId).eq("date", args.date),
+      )
+      .first();
+
+    if (!schedule) {
+      const newId = await ctx.db.insert("schedules", {
+        teacherId: args.teacherId,
+        date: args.date,
+        lessons: [],
+      });
+      schedule = await ctx.db.get(newId);
+      if (!schedule) throw new Error("Failed to create schedule");
+    }
+
+    const lessonId =
+      Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+    const newLesson: Lesson = {
+      ...args.lesson,
+      bookId: args.lesson.bookId ?? null,
+      lessonId,
+      startedAt: args.lesson.startedAt ?? undefined,
+      status: args.lesson.status ?? ("completed" as const),
+      state: args.lesson.state ?? ("scheduled" as const),
+      endedAt: args.lesson.endedAt ?? undefined,
+      actualMinutes: args.lesson.actualMinutes ?? undefined,
+      onTime: args.lesson.onTime ?? undefined,
+      joinedAt: args.lesson.joinedAt ?? undefined,
+    };
+
+    if (newLesson.bookId != null) {
+      await ctx.db.patch(newLesson.studentId, {
+        currentBookId: newLesson.bookId,
+      });
+    }
+
+    await ctx.db.patch(schedule._id, {
+      lessons: [...schedule.lessons, newLesson],
+    });
+
+    return { scheduleId: schedule._id, lessonId };
+  },
+});
+
+// TEACHER: Start a lesson
+export const startLesson = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+  },
+  handler: async (ctx, { scheduleId, lessonId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const teacher = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!teacher || teacher.role !== "teacher")
+      throw new Error("Only teachers can start lessons");
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule || schedule.teacherId !== teacher._id)
+      throw new Error("Not your schedule");
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+
+    if (oldLesson.state !== "scheduled") {
+      throw new Error("Lesson can only be started from scheduled state");
+    }
+
+    const now = Date.now();
+    const [year, month, day] = schedule.date.split("-").map(Number);
+    const [hour, minute] = oldLesson.time.split(":").map(Number);
+    const scheduledTime = new Date(
+      year,
+      month - 1,
+      day,
+      hour,
+      minute,
+    ).getTime();
+
+    const isOnTime = now <= scheduledTime + 60000; // 1 min grace
+
+    const newLesson: Lesson = {
+      ...oldLesson,
+      state: "in_progress" as const,
+      startedAt: now,
+      onTime: isOnTime,
+      status: isOnTime ? ("completed" as const) : ("teacher_late" as const),
+    };
+
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons[lessonIndex] = newLesson;
+
+    await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+    return { success: true, onTime: isOnTime };
+  },
+});
+
+// TEACHER: End a lesson
+export const endLesson = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+    status: v.optional(
+      v.union(
+        v.literal("completed"),
+        v.literal("finished_early"),
+        v.literal("no_answer_on_time"),
+        v.literal("technical_difficulty"),
+        v.literal("teacher_late"),
+      ),
+    ),
+  },
+  handler: async (ctx, { scheduleId, lessonId, status }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!caller || (caller.role !== "teacher" && caller.role !== "admin"))
+      throw new Error("Only teachers or admins can end lessons");
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    if (caller.role === "teacher" && schedule.teacherId !== caller._id) {
+      throw new Error("Not your schedule");
+    }
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+    if (oldLesson.state !== "in_progress")
+      throw new Error("Lesson can only be ended from in_progress state");
+
+    const now = Date.now();
+    const actualMinutes = Math.round(
+      (now - (oldLesson.startedAt ?? 0)) / 60000,
+    );
+
+    // Use provided status or keep existing (e.g., if already teacher_late from start)
+    const finalStatus = status ?? oldLesson.status;
+
+    const newLesson: Lesson = {
+      ...oldLesson,
+      state: "completed" as const,
+      status: finalStatus,
+      endedAt: now,
+      actualMinutes,
+    };
+
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons[lessonIndex] = newLesson;
+
+    await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+    // Deduct minutes from student package
+    const student = await ctx.db.get(oldLesson.studentId);
+    if (student) {
+      const activePackage = await ctx.db
+        .query("studentPackages")
+        .withIndex("by_student", (q) => q.eq("studentId", student._id))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("status"), "active"),
+            q.gt(q.field("remainingMinutes"), 0),
+          ),
+        )
+        .first();
+      if (activePackage) {
+        await ctx.db.patch(activePackage._id, {
+          remainingMinutes: Math.max(
+            0,
+            activePackage.remainingMinutes -
+              (actualMinutes ?? oldLesson.duration),
+          ),
+        });
+      }
+    }
+    return { success: true, status: finalStatus, actualMinutes };
+  },
+});
+
+// TEACHER/ADMIN: General updates
+export const updateLesson = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+    updates: v.object({
+      zoomLink: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      bookId: v.optional(v.union(v.id("books"), v.null())),
+      state: v.optional(
+        v.union(
+          v.literal("scheduled"),
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("missed_teacher"),
+          v.literal("missed_student"),
+        ),
+      ),
+      forceStatus: v.optional(
+        v.union(
+          v.literal("completed"),
+          v.literal("finished_early"),
+          v.literal("no_answer_on_time"),
+          v.literal("teacher_never_called"),
+          v.literal("technical_difficulty"),
+          v.literal("teacher_late"),
+        ),
+      ),
+    }),
+  },
+  handler: async (ctx, { scheduleId, lessonId, updates }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!caller || (caller.role !== "teacher" && caller.role !== "admin"))
+      throw new Error("Only teachers or admins can update lessons");
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    if (caller.role === "teacher" && schedule.teacherId !== caller._id) {
+      throw new Error("Not your schedule");
+    }
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+
+    if (updates.state && caller.role !== "admin") {
+      throw new Error("Only admins can manually override state");
+    }
+
+    const newLesson: Lesson = {
+      ...oldLesson,
+      ...updates,
+      bookId: updates.bookId !== undefined ? updates.bookId : oldLesson.bookId,
+      status: updates.forceStatus ?? oldLesson.status,
+      state: updates.state ?? oldLesson.state,
+    };
+
+    if ("bookId" in updates) {
+      await ctx.db.patch(oldLesson.studentId, {
+        currentBookId: updates.bookId ?? undefined,
+      });
+    }
+
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons[lessonIndex] = newLesson;
+
+    await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+    return updatedLessons[lessonIndex];
+  },
+});
+
+// STUDENT: Join a lesson
+export const studentJoin = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+  },
+  handler: async (ctx, { scheduleId, lessonId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const student = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!student || student.role !== "student")
+      throw new Error("Only students can join lessons");
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+    if (oldLesson.studentId !== student._id) throw new Error("Not your lesson");
+
+    if (oldLesson.state !== "in_progress") {
+      throw new Error("Can only join in-progress lessons");
+    }
+
+    const newLesson: Lesson = {
+      ...oldLesson,
+      joinedAt: Date.now(),
+    };
+
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons[lessonIndex] = newLesson;
+
+    await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+
+    return newLesson;
+  },
+});
+
+// ADMIN: Mark lesson as "teacher never called"
+export const markTeacherNeverCalled = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+  },
+  handler: async (ctx, { scheduleId, lessonId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!caller || caller.role !== "admin")
+      throw new Error("Only admins can mark teacher never called");
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+
+    const newLesson: Lesson = {
+      ...oldLesson,
+      state: "missed_teacher",
+      status: "teacher_never_called",
+      endedAt: Date.now(),
+    };
+
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons[lessonIndex] = newLesson;
+
+    await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+  },
+});
+
+// TEACHER/ADMIN: Mark lesson as missed
+export const markMissed = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+    missedBy: v.union(v.literal("teacher"), v.literal("student")),
+  },
+  handler: async (ctx, { scheduleId, lessonId, missedBy }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!caller || (caller.role !== "teacher" && caller.role !== "admin"))
+      throw new Error("Only teachers or admins can mark missed lessons");
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    if (caller.role === "teacher" && schedule.teacherId !== caller._id) {
+      throw new Error("Not your schedule");
+    }
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const oldLesson = schedule.lessons[lessonIndex] as Lesson;
+
+    if (!["scheduled", "in_progress"].includes(oldLesson.state)) {
+      throw new Error("Can only mark missed from scheduled or in_progress");
+    }
+
+    const newState: LessonState =
+      missedBy === "teacher" ? "missed_teacher" : "missed_student";
+
+    const newLesson: Lesson = {
+      ...oldLesson,
+      state: newState,
+      status:
+        missedBy === "teacher" ? "teacher_never_called" : "no_answer_on_time",
+    };
+
+    if (oldLesson.state === "in_progress" && missedBy === "student") {
+      newLesson.endedAt = Date.now();
+      newLesson.actualMinutes = Math.round(
+        ((newLesson.endedAt ?? 0) - (oldLesson.startedAt ?? 0)) / 60000,
+      );
+    }
+
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons[lessonIndex] = newLesson;
+
+    await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+  },
+});
+
+// Auto-check for missed lessons (runs via cron)
+export const checkMissedLessons = internalMutation({
+  handler: async (ctx) => {
+    const now = Date.now();
+    const recentSchedules = await ctx.db
+      .query("schedules")
+      .filter((q) => {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 1);
+        return q.gte(q.field("date"), cutoff.toISOString().split("T")[0]);
+      })
+      .collect();
+
+    for (const sched of recentSchedules) {
+      let needsUpdate = false;
+      const updatedLessons = [...sched.lessons] as Lesson[];
+
+      for (let i = 0; i < updatedLessons.length; i++) {
+        const lesson = updatedLessons[i];
+        const [year, month, day] = sched.date.split("-").map(Number);
+        const [hour, minute] = lesson.time.split(":").map(Number);
+        const scheduledTime = new Date(
+          year,
+          month - 1,
+          day,
+          hour,
+          minute,
+        ).getTime();
+
+        // Check if teacher never started (15 min past scheduled time)
+        if (
+          lesson.state === "scheduled" &&
+          now > scheduledTime + 15 * 60 * 1000
+        ) {
+          updatedLessons[i] = {
+            ...lesson,
+            state: "missed_teacher" as const,
+            status: "teacher_never_called" as const,
+          };
+          needsUpdate = true;
+        }
+
+        // Check for missed student (5 min after start, no joinedAt)
+        if (
+          lesson.state === "in_progress" &&
+          lesson.startedAt &&
+          now > lesson.startedAt + 5 * 60 * 1000 &&
+          lesson.joinedAt === undefined
+        ) {
+          updatedLessons[i] = {
+            ...lesson,
+            state: "missed_student" as const,
+            status: "no_answer_on_time" as const,
+            endedAt: now,
+            actualMinutes: 0,
+          };
+          needsUpdate = true;
+        }
+
+        // Auto-complete stuck in-progress lessons
+        if (
+          lesson.state === "in_progress" &&
+          lesson.startedAt &&
+          now > lesson.startedAt + (lesson.duration + 30) * 60 * 1000
+        ) {
+          updatedLessons[i] = {
+            ...lesson,
+            state: "completed" as const,
+            status: "completed" as const,
+            endedAt: now,
+            actualMinutes: Math.round((now - lesson.startedAt) / 60000),
+          };
+          needsUpdate = true;
+        }
+      }
+
+      if (needsUpdate) {
+        await ctx.db.patch(sched._id, { lessons: updatedLessons });
+      }
+    }
+  },
+});
+
+// Get lessons by student
+export const getByStudent = query({
+  args: { studentId: v.id("users") },
+  handler: async (ctx, { studentId }) => {
+    const allSchedules = await ctx.db.query("schedules").collect();
+    const lessons: Array<{
+      scheduleId: Id<"schedules">;
+      lessonId: string;
+      date: string;
+      time: string;
+      duration: number;
+      teacherId: Id<"users">;
+      bookId?: Id<"books"> | null;
+      zoomLink?: string;
+      completed: boolean;
+      notes?: string;
+      startedAt?: number;
+      status: LessonStatus;
+      state: LessonState;
+      endedAt?: number;
+      actualMinutes?: number;
+      onTime?: boolean;
+      joinedAt?: number;
+    }> = [];
+
+    for (const sched of allSchedules) {
+      for (const lesson of sched.lessons as Lesson[]) {
+        if (lesson.studentId === studentId) {
+          lessons.push({
+            scheduleId: sched._id,
+            lessonId: lesson.lessonId,
+            date: sched.date,
+            time: lesson.time,
+            duration: lesson.duration,
+            teacherId: sched.teacherId,
+            bookId: lesson.bookId,
+            zoomLink: lesson.zoomLink,
+            completed: lesson.completed,
+            notes: lesson.notes,
+            startedAt: lesson.startedAt,
+            status: lesson.status,
+            state: lesson.state,
+            endedAt: lesson.endedAt,
+            actualMinutes: lesson.actualMinutes,
+            onTime: lesson.onTime,
+            joinedAt: lesson.joinedAt,
+          });
+        }
+      }
+    }
+
+    lessons.sort((a, b) =>
+      `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`),
+    );
+    return lessons;
+  },
+});
+
+export const getByTeacher = query({
+  args: { teacherId: v.id("users") },
+  handler: async (ctx, { teacherId }) => {
+    return await ctx.db
+      .query("schedules")
+      .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+      .order("desc")
+      .collect();
+  },
+});
+
+export const getLesson = query({
+  args: { scheduleId: v.id("schedules"), lessonId: v.string() },
+  handler: async (ctx, { scheduleId, lessonId }) => {
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) return null;
+    const lesson = schedule.lessons.find((l) => l.lessonId === lessonId) as
+      | Lesson
+      | undefined;
+    if (!lesson) return null;
+    return { ...lesson, date: schedule.date, teacherId: schedule.teacherId };
+  },
+});
+
+export const deleteLesson = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+  },
+  handler: async (ctx, { scheduleId, lessonId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const lesson = schedule.lessons[lessonIndex] as Lesson;
+
+    if (caller?.role === "student") {
+      if (lesson.studentId !== caller._id) {
+        throw new Error("You can only cancel your own lessons");
+      }
+      if (lesson.state !== "scheduled") {
+        throw new Error("You can only cancel scheduled lessons");
+      }
+    } else if (caller?.role !== "teacher" && caller?.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons.splice(lessonIndex, 1);
+
+    if (updatedLessons.length === 0) {
+      await ctx.db.delete(scheduleId);
+    } else {
+      await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+    }
+
+    return { success: true };
+  },
+});
+
+export const getByTeacherWithTimezones = query({
+  args: { teacherId: v.id("users") },
+  handler: async (ctx, { teacherId }) => {
+    const schedules = await ctx.db
+      .query("schedules")
+      .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+      .order("desc")
+      .collect();
+
+    const enrichedSchedules = await Promise.all(
+      schedules.map(async (schedule) => {
+        const lessonsWithStudentTz = await Promise.all(
+          schedule.lessons.map(async (lesson) => {
+            const student = await ctx.db.get(lesson.studentId);
+            return {
+              ...lesson,
+              studentTimezone: student?.timezone,
+              studentCountry: student?.country,
+            };
+          }),
+        );
+        return { ...schedule, lessons: lessonsWithStudentTz };
+      }),
+    );
+
+    return enrichedSchedules;
+  },
+});
+
+export const getLatenessStats = query({
+  args: { teacherId: v.id("users") },
+  handler: async (ctx, { teacherId }) => {
+    const schedules = await ctx.db
+      .query("schedules")
+      .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+      .collect();
+
+    let totalLessons = 0;
+    let lateCount = 0;
+
+    for (const sched of schedules) {
+      for (const lesson of sched.lessons as Lesson[]) {
+        if (lesson.startedAt !== undefined && lesson.onTime !== undefined) {
+          totalLessons++;
+          if (!lesson.onTime) lateCount++;
+        }
+      }
+    }
+
+    return {
+      totalLessons,
+      lateCount,
+      latePercentage: (lateCount / totalLessons) * 100 || 0,
+    };
+  },
+});
+
+export const getLessonWithBook = query({
+  args: { scheduleId: v.id("schedules"), lessonId: v.string() },
+  handler: async (ctx, { scheduleId, lessonId }) => {
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) return null;
+
+    const lessons = schedule.lessons.map((l) => ({
+      lessonId: l.lessonId,
+      bookId: l.bookId,
+    }));
+
+    const lesson = schedule.lessons.find((l) => l.lessonId === lessonId) as
+      | Lesson
+      | undefined;
+    if (!lesson) return null;
+
+    const book = lesson.bookId ? await ctx.db.get(lesson.bookId) : null;
+
+    return {
+      ...lesson,
+      date: schedule.date,
+      teacherId: schedule.teacherId,
+      bookTitle: book?.title,
+      bookInstrument: book?.instrument,
+      bookLevel: book?.levelNumber,
+      driveViewLink: book?.driveViewLink,
+      driveDownloadLink: book?.driveDownloadLink,
+    };
+  },
+});
