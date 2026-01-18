@@ -659,6 +659,7 @@ import confetti from "canvas-confetti";
 import { TutorMemoSection } from "@/app/components/TutorMemoSection";
 import { CancelLessonDialog } from "@/app/components/CancelLessonDialog"; // ← NEW: Import CancelLessonDialog
 import { RescheduleDialog } from "@/app/components/RescheduleDialog"; // ← NEW: Import RescheduleDialog
+import { Star } from "lucide-react";
 
 type NewLessonStatus =
   | "completed"
@@ -726,6 +727,12 @@ export default function LessonDetail() {
     api.users.getById,
     lesson?.studentId ? { id: lesson.studentId } : "skip",
   );
+
+  const existingRating = useQuery(api.lessonRatings.getForLesson, {
+    scheduleId,
+    lessonId,
+  });
+  const submitRating = useMutation(api.lessonRatings.submit);
 
   const updateLesson = useMutation(api.schedules.updateLesson);
   const startLessonMutation = useMutation(api.schedules.startLesson);
@@ -1249,6 +1256,29 @@ export default function LessonDetail() {
                 </div>
               </div>
             )}
+            {isStudent && lesson.state === "completed" && (
+              <div className="space-y-3 pt-4 border-t border-purple-800/30">
+                <Label className="text-white">
+                  Rate This Lesson (Optional)
+                </Label>
+                {!existingRating ? (
+                  <RatingStars
+                    onRate={async (rating) => {
+                      try {
+                        await submitRating({ scheduleId, lessonId, rating });
+                        toast.success("Rating submitted!");
+                      } catch (err) {
+                        toast.error("Failed to submit rating");
+                      }
+                    }}
+                  />
+                ) : (
+                  <p className="text-purple-200">
+                    You rated this {existingRating.rating} stars. Thanks!
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Tutor Memo Section */}
             {isTeacher && (
@@ -1261,6 +1291,36 @@ export default function LessonDetail() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+interface RatingStarsProps {
+  onRate: (rating: number) => Promise<void>;
+}
+
+function RatingStars({ onRate }: RatingStarsProps) {
+  const [hoverRating, setHoverRating] = useState(0);
+
+  return (
+    <div className="flex gap-1" onMouseLeave={() => setHoverRating(0)}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Button
+          key={star}
+          variant="ghost"
+          className="p-0 hover:bg-transparent"
+          onClick={() => onRate(star)}
+          onMouseEnter={() => setHoverRating(star)}
+          aria-label={`Rate ${star} stars`}
+        >
+          <Star
+            className="h-8 w-8 transition-colors"
+            fill={star <= hoverRating ? "currentColor" : "none"}
+            stroke={star <= hoverRating ? "transparent" : "currentColor"}
+            color="yellow-400"
+          />
+        </Button>
+      ))}
     </div>
   );
 }

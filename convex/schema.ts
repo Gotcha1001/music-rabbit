@@ -280,4 +280,16 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_schedule", ["scheduleId"])
     .index("by_schedule_lesson", ["scheduleId", "lessonId"]),
+
+  lessonRatings: defineTable({
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(), // Matches lesson.lessonId in schedules
+    studentId: v.id("users"),
+    teacherId: v.id("users"),
+    rating: v.number(), // 1-5, enforced in mutation
+    timestamp: v.number(), // Date.now()
+  })
+    .index("by_teacher", ["teacherId"]) // For quick stats aggregation
+    .index("by_lesson", ["scheduleId", "lessonId"]) // To check if rated
+    .index("by_student_lesson", ["studentId", "scheduleId", "lessonId"]),
 });
