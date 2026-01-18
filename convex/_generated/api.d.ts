@@ -14,6 +14,7 @@ import type * as crons from "../crons.js";
 import type * as globalMessages from "../globalMessages.js";
 import type * as inviteCodes from "../inviteCodes.js";
 import type * as lessonManagement from "../lessonManagement.js";
+import type * as lessonRatings from "../lessonRatings.js";
 import type * as messages from "../messages.js";
 import type * as payments from "../payments.js";
 import type * as recordings from "../recordings.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   globalMessages: typeof globalMessages;
   inviteCodes: typeof inviteCodes;
   lessonManagement: typeof lessonManagement;
+  lessonRatings: typeof lessonRatings;
   messages: typeof messages;
   payments: typeof payments;
   recordings: typeof recordings;

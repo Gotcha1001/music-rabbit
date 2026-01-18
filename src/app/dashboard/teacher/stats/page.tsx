@@ -1,8 +1,6 @@
 // "use client";
-
-// import { useQuery } from "convex/react";
-
 // import { useUserDetail } from "@/context/UserDetailContext";
+// import { useQuery } from "convex/react";
 // import { format } from "date-fns";
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // import { Progress } from "@/components/ui/progress";
@@ -39,15 +37,15 @@
 
 //   const stats = useQuery(
 //     api.stats.getTeacherStats,
-//     teacherId ? { teacherId, month: currentMonth } : "skip"
+//     teacherId ? { teacherId, month: currentMonth } : "skip",
 //   );
 //   const schedules = useQuery(
 //     api.schedules.getByTeacher,
-//     teacherId ? { teacherId } : "skip"
+//     teacherId ? { teacherId } : "skip",
 //   );
 //   const earnings = useQuery(
 //     api.payments.getDetailedEarnings,
-//     teacherId ? { teacherId, month: currentMonth } : "skip"
+//     teacherId ? { teacherId, month: currentMonth } : "skip",
 //   );
 
 //   if (!teacherId) return <div className="p-8 text-center">Please log in</div>;
@@ -146,7 +144,7 @@
 //                       </TableCell>
 //                     </TableRow>
 //                   );
-//                 })
+//                 }),
 //               )}
 //             </TableBody>
 //           </Table>
@@ -157,14 +155,13 @@
 // }
 
 // // ──────────────────────────────────────────────────────────────
-// // Fixed Lateness Badge
+// // Fixed Lateness Badge - uses startedAt instead of actualStartTime
 // // ──────────────────────────────────────────────────────────────
 // function LessonLateness({ lesson }: { lesson: LessonWithDate }) {
-//   if (!lesson.actualStartTime)
-//     return <Badge variant="secondary">Not Started</Badge>;
+//   if (!lesson.startedAt) return <Badge variant="secondary">Not Started</Badge>;
 
 //   const scheduled = new Date(`${lesson.date}T${lesson.time}:00`).getTime();
-//   const started = lesson.actualStartTime;
+//   const started = lesson.startedAt;
 //   const delayMinutes = (started - scheduled) / (60 * 1000);
 
 //   return (
@@ -197,6 +194,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Doc } from "../../../../../convex/_generated/dataModel";
+import { Star } from "lucide-react";
 import { api } from "../../../../../convex/_generated/api";
 
 // Types
@@ -212,26 +210,30 @@ export default function TeacherStatsComponent() {
 
   const stats = useQuery(
     api.stats.getTeacherStats,
-    teacherId ? { teacherId, month: currentMonth } : "skip"
+    teacherId ? { teacherId, month: currentMonth } : "skip",
   );
   const schedules = useQuery(
     api.schedules.getByTeacher,
-    teacherId ? { teacherId } : "skip"
+    teacherId ? { teacherId } : "skip",
+  );
+  const ratingStats = useQuery(
+    api.lessonRatings.getTeacherStats,
+    teacherId ? { teacherId } : "skip",
   );
   const earnings = useQuery(
     api.payments.getDetailedEarnings,
-    teacherId ? { teacherId, month: currentMonth } : "skip"
+    teacherId ? { teacherId, month: currentMonth } : "skip",
   );
 
   if (!teacherId) return <div className="p-8 text-center">Please log in</div>;
 
-  if (!stats || !schedules || !earnings)
+  if (!stats || !schedules || !earnings || !ratingStats)
     return <div className="p-8 text-center">Loading...</div>;
 
   return (
     <div className="space-y-8 p-6 max-w-6xl mx-auto">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader>
             <CardTitle>On-Time Rate</CardTitle>
@@ -262,6 +264,21 @@ export default function TeacherStatsComponent() {
             <Progress value={stats.completionRate} className="h-3" />
             <p className="mt-2 text-sm">
               {stats.completionRate}% ({stats.totalLessons} total)
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Average Rating</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center">
+            <div className="text-4xl font-bold text-yellow-400 flex items-center gap-2">
+              <Star className="h-8 w-8" fill="currentColor" />
+              {ratingStats.average.toFixed(1)} / 5
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Based on {ratingStats.count} ratings
             </p>
           </CardContent>
         </Card>
@@ -319,7 +336,7 @@ export default function TeacherStatsComponent() {
                       </TableCell>
                     </TableRow>
                   );
-                })
+                }),
               )}
             </TableBody>
           </Table>
