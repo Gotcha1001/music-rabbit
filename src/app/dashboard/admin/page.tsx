@@ -63,7 +63,7 @@ export default function AdminDashboard() {
   const me = useQuery(api.users.getMe);
 
   const addLesson = useMutation(api.schedules.addLesson);
-  const deleteLesson = useMutation(api.schedules.deleteLesson);
+  const adminDeleteLesson = useMutation(api.schedules.adminDeleteLesson); // ← FIXED: Changed to adminDeleteLesson
   const sendMessage = useMutation(api.messages.send);
   const updateUserRole = useMutation(api.users.updateRole);
   const deleteUser = useMutation(api.users.remove);
@@ -450,7 +450,7 @@ export default function AdminDashboard() {
                                         variant="destructive"
                                         onClick={async () => {
                                           if (confirm("Cancel this lesson?")) {
-                                            await deleteLesson({
+                                            await adminDeleteLesson({ // ← FIXED: Changed to adminDeleteLesson
                                               scheduleId: sched._id,
                                               lessonId: lesson.lessonId,
                                             });
