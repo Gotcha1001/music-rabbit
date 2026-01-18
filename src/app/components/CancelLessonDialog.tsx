@@ -30,6 +30,20 @@ interface CancelLessonDialogProps {
   isStudent: boolean;
 }
 
+/**
+ * Render a confirmation dialog that allows a user or admin to cancel a scheduled lesson.
+ *
+ * Performs a role-specific cancellation action (student cancel may apply a penalty; admin delete does not),
+ * shows success/error toast notifications, and closes the dialog on success.
+ *
+ * @param scheduleId - The schedule record id for the lesson
+ * @param lessonId - The lesson identifier within the schedule
+ * @param date - The scheduled date (ISO date portion, e.g. "2025-01-18")
+ * @param time - The scheduled time (time portion, e.g. "14:00")
+ * @param duration - Lesson duration in minutes
+ * @param isStudent - If `true`, performs the student cancellation flow (may incur a penalty); otherwise performs admin/teacher deletion
+ * @returns The dialog React element for confirming and executing lesson cancellation
+ */
 export function CancelLessonDialog({
   scheduleId,
   lessonId,

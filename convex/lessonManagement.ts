@@ -2,7 +2,13 @@ import { v } from "convex/values";
 import { mutation, query } from ".//_generated/server";
 import type { Id } from ".//_generated/dataModel";
 
-// Calculate hours notice given for cancellation
+/**
+ * Compute the difference in hours between a lesson time and a cancellation time.
+ *
+ * @param lessonDateTime - Lesson date/time as milliseconds since epoch
+ * @param cancelTime - Cancellation date/time as milliseconds since epoch
+ * @returns The number of hours between `cancelTime` and `lessonDateTime`; positive if the lesson is after the cancellation time, negative if it is before
+ */
 function calculateHoursNotice(
   lessonDateTime: number,
   cancelTime: number,

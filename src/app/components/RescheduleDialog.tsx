@@ -36,6 +36,17 @@ interface RescheduleDialogProps {
   duration: number;
 }
 
+/**
+ * Render a dialog that lets a teacher request a lesson reschedule by selecting a date and an available time slot.
+ *
+ * Presents a Calendar for choosing a date, fetches available time slots for the selected date, and submits a reschedule request to the backend when the user confirms.
+ *
+ * @param scheduleId - Identifier of the schedule being rescheduled
+ * @param lessonId - Identifier of the lesson to be rescheduled
+ * @param teacherId - Identifier of the teacher whose availability is queried
+ * @param duration - Desired duration (in minutes) for the rescheduled slot
+ * @returns A React element that displays the reschedule dialog UI
+ */
 export function RescheduleDialog({
   scheduleId,
   lessonId,

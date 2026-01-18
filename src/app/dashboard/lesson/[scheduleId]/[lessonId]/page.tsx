@@ -707,6 +707,17 @@ const stateLabels = {
   missed_student: "Missed by Student",
 };
 
+/**
+ * Render the lesson detail view for a specific schedule and lesson.
+ *
+ * Displays lesson metadata (student/teacher, date/time, duration, assigned book, current status)
+ * and provides role-based controls: teachers can start/end lessons, mark missed, assign books,
+ * edit and save lesson notes, view and manage tutor memos, and cancel or reschedule scheduled lessons;
+ * students can join Zoom and view the teacher's message and current outcome. Also shows a dual-timezone
+ * live clock and opens the configured Zoom link when requested.
+ *
+ * @returns The JSX element for the lesson detail page.
+ */
 export default function LessonDetail() {
   const params = useParams();
   const scheduleId = params.scheduleId as Id<"schedules">;

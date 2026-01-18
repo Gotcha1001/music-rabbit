@@ -37,13 +37,23 @@ export type Lesson = {
   joinedAt?: number;
 };
 
-// Helper to convert HH:mm to minutes
+/**
+ * Convert a time string in "HH:mm" format to the total number of minutes since midnight.
+ *
+ * @param time - Time in 24-hour "HH:mm" format (e.g., "08:30")
+ * @returns The number of minutes since midnight represented by `time`
+ */
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
 }
 
-// Helper to convert minutes to HH:mm
+/**
+ * Convert a total minute count since midnight into an `HH:mm` time string.
+ *
+ * @param minutes - Total minutes since midnight
+ * @returns The time formatted as `HH:mm`
+ */
 function minutesToTime(minutes: number): string {
   const h = Math.floor(minutes / 60)
     .toString()
