@@ -824,7 +824,10 @@ function ScheduleTable({
               Student
             </TableHead>
             <TableHead className="text-foreground font-serif">
-              Duration
+              Scheduled
+            </TableHead>
+            <TableHead className="text-foreground font-serif">
+              Actual Time
             </TableHead>
             <TableHead className="text-foreground font-serif">Book</TableHead>
             <TableHead className="text-foreground font-serif">State</TableHead>
@@ -849,8 +852,10 @@ function ScheduleTable({
                   transition={{ delay: globalIndex * 0.05 }}
                   className="border-b border-border hover:bg-muted/30 transition-colors"
                 >
+                  {/* NEW: Add Date cell first to align with headers */}
                   <TableCell className="text-foreground font-serif">
-                    {format(startMs, "PPP")}
+                    {format(new Date(s.date), "MM/dd")}{" "}
+                    {/* Or use 'PPP' for full date */}
                   </TableCell>
                   <TableCell className="text-foreground font-serif">
                     {l.time}
@@ -860,6 +865,45 @@ function ScheduleTable({
                   </TableCell>
                   <TableCell className="text-foreground font-serif">
                     {l.duration} min
+                  </TableCell>
+                  <TableCell className="text-foreground font-serif">
+                    <div className="flex flex-col gap-1">
+                      {l.actualMinutes !== undefined &&
+                      l.state === "completed" ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground">
+                              {l.actualMinutes} min
+                            </span>
+                            {l.actualMinutes < l.duration && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs border-orange-400 text-orange-600"
+                              >
+                                -{l.duration - l.actualMinutes} min
+                              </Badge>
+                            )}
+                            {l.actualMinutes > l.duration && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs border-blue-400 text-blue-600"
+                              >
+                                +{l.actualMinutes - l.duration} min
+                              </Badge>
+                            )}
+                          </div>
+                        </>
+                      ) : l.state === "missed_teacher" ||
+                        l.state === "missed_student" ? (
+                        <span className="text-xs text-red-500 italic">
+                          Lesson missed
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">
+                          Not finished
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <BookTitle id={l.bookId} />
@@ -880,14 +924,15 @@ function ScheduleTable({
                     >
                       {getStateIcon(l.state)} {l.state.replace("_", " ")}
                     </Badge>
-                    {l.status !== "no_answer_on_time" && (
-                      <Badge
-                        variant="secondary"
-                        className="mr-2 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-100"
-                      >
-                        {l.status.replace("_", " ")}
-                      </Badge>
-                    )}
+                    {l.status !== l.state &&
+                      l.status !== "no_answer_on_time" && (
+                        <Badge
+                          variant="secondary"
+                          className="mr-2 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-100"
+                        >
+                          {l.status.replace("_", " ")}
+                        </Badge>
+                      )}
                     {l.onTime === false && (
                       <Badge
                         variant="destructive"
