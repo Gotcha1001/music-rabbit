@@ -37,6 +37,21 @@ export type Lesson = {
   joinedAt?: number;
 };
 
+// Helper to convert HH:mm to minutes
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Helper to convert minutes to HH:mm
+function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+    .toString()
+    .padStart(2, "0");
+  const m = (minutes % 60).toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
 export const getAll = query({
   handler: async (ctx) => {
     return await ctx.db.query("schedules").collect();
@@ -692,7 +707,8 @@ export const getLesson = query({
   },
 });
 
-export const deleteLesson = mutation({
+// ADMIN/TEACHER: Delete lesson (no penalty, for admin cleanup)
+export const adminDeleteLesson = mutation({
   args: {
     scheduleId: v.id("schedules"),
     lessonId: v.string(),
@@ -716,15 +732,12 @@ export const deleteLesson = mutation({
 
     const lesson = schedule.lessons[lessonIndex] as Lesson;
 
-    if (caller?.role === "student") {
-      if (lesson.studentId !== caller._id) {
-        throw new Error("You can only cancel your own lessons");
-      }
-      if (lesson.state !== "scheduled") {
-        throw new Error("You can only cancel scheduled lessons");
-      }
-    } else if (caller?.role !== "teacher" && caller?.role !== "admin") {
+    if (caller?.role !== "teacher" && caller?.role !== "admin") {
       throw new Error("Unauthorized");
+    }
+
+    if (caller?.role === "teacher" && schedule.teacherId !== caller._id) {
+      throw new Error("Not your schedule");
     }
 
     const updatedLessons = [...schedule.lessons];
@@ -825,5 +838,499 @@ export const getLessonWithBook = query({
       driveViewLink: book?.driveViewLink,
       driveDownloadLink: book?.driveDownloadLink,
     };
+  },
+});
+
+// NEW: Get available slots for a date
+export const getAvailableSlots = query({
+  args: {
+    teacherId: v.id("users"),
+    date: v.string(), // yyyy-MM-dd
+    duration: v.number(),
+  },
+  handler: async (ctx, { teacherId, date, duration }) => {
+    const schedule = await ctx.db
+      .query("schedules")
+      .withIndex("by_teacher_date", (q) =>
+        q.eq("teacherId", teacherId).eq("date", date),
+      )
+      .first();
+
+    const occupied: { startMin: number; endMin: number }[] = [];
+    if (schedule) {
+      for (const lesson of schedule.lessons as Lesson[]) {
+        const startMin = timeToMinutes(lesson.time);
+        const endMin = startMin + lesson.duration;
+        occupied.push({ startMin, endMin });
+      }
+    }
+
+    const startHour = 8;
+    const endHour = 22;
+    const interval = 30; // min
+
+    const available: string[] = [];
+    for (
+      let min = startHour * 60;
+      min <= endHour * 60 - duration;
+      min += interval
+    ) {
+      const startMin = min;
+      const endMin = min + duration;
+
+      const overlaps = occupied.some(
+        (occ) => startMin < occ.endMin && endMin > occ.startMin,
+      );
+
+      if (!overlaps) {
+        available.push(minutesToTime(min));
+      }
+    }
+
+    return available;
+  },
+});
+
+// ============================================================================
+// STUDENT CANCEL LESSON (with penalty for late, logging)
+// ============================================================================
+export const studentCancelLesson = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { scheduleId, lessonId, reason }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const student = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!student || student.role !== "student") {
+      throw new Error("Only students can cancel lessons");
+    }
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const lesson = schedule.lessons[lessonIndex] as Lesson;
+    if (lesson.studentId !== student._id) {
+      throw new Error("Not your lesson");
+    }
+
+    if (lesson.state !== "scheduled") {
+      throw new Error("Can only cancel scheduled lessons");
+    }
+
+    // Calculate hours notice
+    const [year, month, day] = schedule.date.split("-").map(Number);
+    const [hour, minute] = lesson.time.split(":").map(Number);
+    const lessonDateTime = new Date(
+      year,
+      month - 1,
+      day,
+      hour,
+      minute,
+    ).getTime();
+    const now = Date.now();
+    const hoursNotice = (lessonDateTime - now) / (1000 * 60 * 60);
+
+    // Determine penalty
+    const penaltyApplied = hoursNotice < 24;
+
+    // If less than 24hr notice, deduct from package (no refund for early since not deducted yet)
+    if (penaltyApplied) {
+      const activePackage = await ctx.db
+        .query("studentPackages")
+        .withIndex("by_student", (q) => q.eq("studentId", student._id))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("status"), "active"),
+            q.gt(q.field("remainingMinutes"), 0),
+          ),
+        )
+        .first();
+
+      if (activePackage) {
+        // Deduct lesson minutes as penalty
+        await ctx.db.patch(activePackage._id, {
+          remainingMinutes: Math.max(
+            0,
+            activePackage.remainingMinutes - lesson.duration,
+          ),
+        });
+      }
+    }
+
+    // Log cancellation
+    await ctx.db.insert("lessonCancellations", {
+      scheduleId,
+      lessonId,
+      cancelledBy: student._id,
+      cancelledAt: now,
+      originalDate: schedule.date,
+      originalTime: lesson.time,
+      reason,
+      hoursNotice,
+      penaltyApplied,
+    });
+
+    // Remove lesson from schedule
+    const updatedLessons = [...schedule.lessons];
+    updatedLessons.splice(lessonIndex, 1);
+
+    if (updatedLessons.length === 0) {
+      await ctx.db.delete(scheduleId);
+    } else {
+      await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+    }
+
+    return {
+      success: true,
+      penaltyApplied,
+      hoursNotice: Math.round(hoursNotice * 10) / 10,
+    };
+  },
+});
+
+// ============================================================================
+// TEACHER REQUEST RESCHEDULE
+// ============================================================================
+export const teacherRequestReschedule = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+    newDate: v.string(),
+    newTime: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { scheduleId, lessonId, newDate, newTime, reason }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const teacher = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!teacher || teacher.role !== "teacher") {
+      throw new Error("Only teachers can request reschedule");
+    }
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule || schedule.teacherId !== teacher._id) {
+      throw new Error("Not your schedule");
+    }
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const lesson = schedule.lessons[lessonIndex] as Lesson;
+
+    if (lesson.state !== "scheduled") {
+      throw new Error("Can only reschedule scheduled lessons");
+    }
+
+    // Check if new time is available
+    const availableSlots = await ctx.runQuery(api.schedules.getAvailableSlots, {
+      teacherId: teacher._id,
+      date: newDate,
+      duration: lesson.duration,
+    });
+
+    if (!availableSlots.includes(newTime)) {
+      throw new Error("Proposed time is not available");
+    }
+
+    // Check for existing pending request
+    // ✅ Corrected
+    const existingRequest = await ctx.db
+      .query("rescheduleRequests")
+      .withIndex("by_schedule_lesson", (q) =>
+        q.eq("scheduleId", scheduleId).eq("lessonId", lessonId),
+      )
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .first();
+
+    if (existingRequest) {
+      throw new Error(
+        "There is already a pending reschedule request for this lesson",
+      );
+    }
+
+    // Create reschedule request
+    await ctx.db.insert("rescheduleRequests", {
+      scheduleId,
+      lessonId,
+      requestedBy: teacher._id,
+      requestedAt: Date.now(),
+      status: "pending",
+      originalDate: schedule.date,
+      originalTime: lesson.time,
+      newDate,
+      newTime,
+      reason,
+    });
+
+    return { success: true, status: "pending" };
+  },
+});
+
+// ============================================================================
+// STUDENT RESPOND TO RESCHEDULE
+// ============================================================================
+export const studentRespondToReschedule = mutation({
+  args: {
+    requestId: v.id("rescheduleRequests"),
+    approved: v.boolean(),
+  },
+  handler: async (ctx, { requestId, approved }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const student = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!student || student.role !== "student") {
+      throw new Error("Only students can respond");
+    }
+
+    const request = await ctx.db.get(requestId);
+    if (!request) throw new Error("Request not found");
+
+    if (request.status !== "pending") {
+      throw new Error("Request already processed");
+    }
+
+    const schedule = await ctx.db.get(request.scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    const lessonIndex = schedule.lessons.findIndex(
+      (l) => l.lessonId === request.lessonId,
+    );
+    if (lessonIndex === -1) throw new Error("Lesson not found");
+
+    const lesson = schedule.lessons[lessonIndex] as Lesson;
+    if (lesson.studentId !== student._id) {
+      throw new Error("Not your lesson");
+    }
+
+    // Update request status
+    await ctx.db.patch(requestId, {
+      status: approved ? "approved" : "rejected",
+      respondedBy: student._id,
+      respondedAt: Date.now(),
+    });
+
+    if (approved) {
+      // Move lesson to new date/time
+      const updatedLessons = [...schedule.lessons];
+      updatedLessons.splice(lessonIndex, 1);
+
+      // Update or delete old schedule
+      if (updatedLessons.length === 0) {
+        await ctx.db.delete(request.scheduleId);
+      } else {
+        await ctx.db.patch(request.scheduleId, { lessons: updatedLessons });
+      }
+
+      // Add to new schedule
+      let newSchedule = await ctx.db
+        .query("schedules")
+        .withIndex("by_teacher_date", (q) =>
+          q.eq("teacherId", schedule.teacherId).eq("date", request.newDate),
+        )
+        .first();
+
+      if (!newSchedule) {
+        const newId = await ctx.db.insert("schedules", {
+          teacherId: schedule.teacherId,
+          date: request.newDate,
+          lessons: [],
+        });
+        newSchedule = await ctx.db.get(newId);
+      }
+
+      if (newSchedule) {
+        const updatedLesson: Lesson = {
+          ...lesson,
+          time: request.newTime,
+        };
+
+        await ctx.db.patch(newSchedule._id, {
+          lessons: [...newSchedule.lessons, updatedLesson],
+        });
+      }
+    }
+
+    return { success: true, approved };
+  },
+});
+
+// ============================================================================
+// GET PENDING RESCHEDULE REQUESTS
+// ============================================================================
+export const getPendingReschedules = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) return [];
+
+    // Get all pending requests
+    const allRequests = await ctx.db
+      .query("rescheduleRequests")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .collect();
+
+    // Filter based on role
+    const relevantRequests = [];
+    for (const req of allRequests) {
+      const schedule = await ctx.db.get(req.scheduleId);
+      if (!schedule) continue;
+
+      const lesson = schedule.lessons.find((l) => l.lessonId === req.lessonId);
+      if (!lesson) continue;
+
+      // Students see requests from their teacher
+      // Teachers see none (since they created them, perhaps add if needed)
+      if (user.role === "student" && lesson.studentId === user._id) {
+        const teacher = await ctx.db.get(schedule.teacherId);
+        relevantRequests.push({
+          ...req,
+          teacherName: teacher?.name || teacher?.email || "Teacher",
+          lessonDuration: lesson.duration,
+        });
+      }
+    }
+
+    return relevantRequests;
+  },
+});
+
+// ============================================================================
+// GET TEACHER AVAILABILITY (for reschedule calendar) - improved to return available slots per day
+// ============================================================================
+export const getTeacherAvailability = query({
+  args: {
+    teacherId: v.id("users"),
+    startDate: v.string(),
+    endDate: v.string(),
+    duration: v.number(),
+  },
+  handler: async (ctx, { teacherId, startDate, endDate, duration }) => {
+    // Get all schedules in date range
+    const allSchedules = await ctx.db
+      .query("schedules")
+      .withIndex("by_teacher_date", (q) => q.eq("teacherId", teacherId))
+      .collect();
+
+    const schedulesInRange = allSchedules.filter(
+      (s) => s.date >= startDate && s.date <= endDate,
+    );
+
+    // Build availability map: date -> array of available times
+    const availability: Record<string, string[]> = {};
+
+    // Generate dates in range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const current = new Date(start);
+
+    while (current <= end) {
+      const dateStr = current.toISOString().split("T")[0];
+      availability[dateStr] = [];
+      current.setDate(current.getDate() + 1);
+    }
+
+    // For each day, calculate available slots like getAvailableSlots
+    for (const date of Object.keys(availability)) {
+      const schedule = schedulesInRange.find((s) => s.date === date);
+
+      const occupied: { startMin: number; endMin: number }[] = [];
+      if (schedule) {
+        for (const lesson of schedule.lessons as Lesson[]) {
+          const startMin = timeToMinutes(lesson.time);
+          const endMin = startMin + lesson.duration;
+          occupied.push({ startMin, endMin });
+        }
+      }
+
+      const startHour = 8;
+      const endHour = 22;
+      const interval = 30; // min
+
+      const availableTimes: string[] = [];
+      for (
+        let min = startHour * 60;
+        min <= endHour * 60 - duration;
+        min += interval
+      ) {
+        const startMin = min;
+        const endMin = min + duration;
+
+        const overlaps = occupied.some(
+          (occ) => startMin < occ.endMin && endMin > occ.startMin,
+        );
+
+        if (!overlaps) {
+          availableTimes.push(minutesToTime(min));
+        }
+      }
+
+      availability[date] = availableTimes;
+    }
+
+    return availability;
+  },
+});
+
+// ============================================================================
+// GET CANCELLATION HISTORY
+// ============================================================================
+export const getCancellationHistory = query({
+  args: { studentId: v.optional(v.id("users")) },
+  handler: async (ctx, { studentId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) return [];
+
+    // Students see their own, admins see all or specific
+    let targetId = studentId;
+    if (user.role === "student") {
+      targetId = user._id;
+    } else if (user.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    if (!targetId) return [];
+
+    return await ctx.db
+      .query("lessonCancellations")
+      .withIndex("by_cancelled_by", (q) => q.eq("cancelledBy", targetId))
+      .collect();
   },
 });
