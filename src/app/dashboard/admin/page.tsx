@@ -52,6 +52,11 @@ import LiveClock from "@/app/components/LiveClock";
 import { TeacherInboxItem } from "@/app/components/TeacherInboxItem";
 import AdminGlobalMessages from "@/app/components/AdminGlobalMessages";
 
+/**
+ * Render the admin (HR) dashboard, providing UI to manage schedules, messages, library, categories, users, invite codes, and announcements.
+ *
+ * @returns The React element for the admin dashboard UI.
+ */
 export default function AdminDashboard() {
   const teachers = (useQuery(api.users.getAllTeachers) as Doc<"users">[]) || [];
   const students = (useQuery(api.users.getAllStudents) as Doc<"users">[]) || [];

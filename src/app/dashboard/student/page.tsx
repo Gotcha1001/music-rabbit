@@ -876,6 +876,12 @@ function TeacherName({ id }: { id: Id<"users"> }) {
   );
 }
 
+/**
+ * Displays the title of a book for the given book id or a muted placeholder when no book is available.
+ *
+ * @param id - The book id to fetch; if `null` or `undefined`, a placeholder is shown
+ * @returns A span element containing the book's title when found, or a muted placeholder span with `---` when not
+ */
 function BookTitle({ id }: { id: Id<"books"> | null | undefined }) {
   const book = useQuery(api.books.getById, id ? { id } : "skip");
 
@@ -890,6 +896,13 @@ function BookTitle({ id }: { id: Id<"books"> | null | undefined }) {
   );
 }
 
+/**
+ * Render a lessons table showing date, time, duration, teacher, book, status, and actions.
+ *
+ * @param lessons - Array of lesson rows to display in the table.
+ * @param now - Current timestamp in milliseconds used as a reference for time-based UI.
+ * @returns A JSX element containing the formatted lessons table.
+ */
 function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
   return (
     <div className="rounded-lg border border-purple-800/30 overflow-hidden">
