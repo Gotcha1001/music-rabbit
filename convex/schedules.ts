@@ -1334,3 +1334,317 @@ export const getCancellationHistory = query({
       .collect();
   },
 });
+// Add these mutations to your convex/schedules.ts file
+// Place them after your existing mutations
+
+// STUDENT: Book a lesson (creates new lesson in teacher's schedule)
+export const bookLesson = mutation({
+  args: {
+    teacherId: v.id("users"),
+    date: v.string(), // yyyy-MM-dd
+    time: v.string(), // HH:mm (UTC)
+    duration: v.number(),
+    bookId: v.optional(v.union(v.id("books"), v.null())),
+  },
+  handler: async (ctx, { teacherId, date, time, duration, bookId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const student = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!student || student.role !== "student") {
+      throw new Error("Only students can book lessons");
+    }
+
+    // Verify teacher exists and teaches the right instrument
+    const teacher = await ctx.db.get(teacherId);
+    if (!teacher || teacher.role !== "teacher") {
+      throw new Error("Invalid teacher");
+    }
+
+    if (teacher.instrument !== student.instrument) {
+      throw new Error(
+        `This teacher teaches ${teacher.instrument}, not ${student.instrument}`,
+      );
+    }
+
+    // Check if student has an active package with remaining minutes
+    const activePackage = await ctx.db
+      .query("studentPackages")
+      .withIndex("by_student", (q) => q.eq("studentId", student._id))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "active"),
+          q.gte(q.field("remainingMinutes"), duration),
+        ),
+      )
+      .first();
+
+    if (!activePackage) {
+      throw new Error(
+        "No active package with sufficient minutes. Please purchase a package first.",
+      );
+    }
+
+    // Find or create schedule for this date
+    let schedule = await ctx.db
+      .query("schedules")
+      .withIndex("by_teacher_date", (q) =>
+        q.eq("teacherId", teacherId).eq("date", date),
+      )
+      .first();
+
+    if (!schedule) {
+      const newId = await ctx.db.insert("schedules", {
+        teacherId,
+        date,
+        lessons: [],
+      });
+      schedule = await ctx.db.get(newId);
+      if (!schedule) throw new Error("Failed to create schedule");
+    }
+
+    // Verify the time slot is still available
+    const occupied: { startMin: number; endMin: number }[] = [];
+    for (const lesson of schedule.lessons as Lesson[]) {
+      const startMin = timeToMinutes(lesson.time);
+      const endMin = startMin + lesson.duration;
+      occupied.push({ startMin, endMin });
+    }
+
+    const requestedStart = timeToMinutes(time);
+    const requestedEnd = requestedStart + duration;
+    const overlaps = occupied.some(
+      (occ) => requestedStart < occ.endMin && requestedEnd > occ.startMin,
+    );
+
+    if (overlaps) {
+      throw new Error("This time slot is no longer available");
+    }
+
+    // Create the lesson
+    const lessonId =
+      Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const newLesson: Lesson = {
+      lessonId,
+      studentId: student._id,
+      time,
+      duration,
+      bookId: bookId ?? null,
+      zoomLink: teacher.zoomLink,
+      completed: false,
+      status: "no_answer_on_time" as const, // Default status
+      state: "scheduled" as const,
+    };
+
+    // Update schedule
+    await ctx.db.patch(schedule._id, {
+      lessons: [...schedule.lessons, newLesson],
+    });
+
+    // Auto-assign teacher to student if not already set
+    if (student.currentTeacher !== teacherId) {
+      await ctx.db.patch(student._id, { currentTeacher: teacherId });
+    }
+
+    return {
+      success: true,
+      scheduleId: schedule._id,
+      lessonId,
+      message: "Lesson booked successfully!",
+    };
+  },
+});
+
+// ADMIN: Bulk create lessons for a student (e.g., weekly recurring)
+export const adminBulkCreateLessons = mutation({
+  args: {
+    teacherId: v.id("users"),
+    studentId: v.id("users"),
+    dates: v.array(v.string()), // Array of yyyy-MM-dd dates
+    time: v.string(), // HH:mm (same time for all)
+    duration: v.number(),
+    bookId: v.optional(v.union(v.id("books"), v.null())),
+  },
+  handler: async (
+    ctx,
+    { teacherId, studentId, dates, time, duration, bookId },
+  ) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const admin = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+
+    // Verify teacher and student
+    const teacher = await ctx.db.get(teacherId);
+    const student = await ctx.db.get(studentId);
+
+    if (!teacher || teacher.role !== "teacher") {
+      throw new Error("Invalid teacher");
+    }
+    if (!student || student.role !== "student") {
+      throw new Error("Invalid student");
+    }
+
+    const createdLessons: { scheduleId: Id<"schedules">; lessonId: string }[] =
+      [];
+
+    // Create lessons for each date
+    for (const date of dates) {
+      let schedule = await ctx.db
+        .query("schedules")
+        .withIndex("by_teacher_date", (q) =>
+          q.eq("teacherId", teacherId).eq("date", date),
+        )
+        .first();
+
+      if (!schedule) {
+        const newId = await ctx.db.insert("schedules", {
+          teacherId,
+          date,
+          lessons: [],
+        });
+        schedule = await ctx.db.get(newId);
+        if (!schedule) continue;
+      }
+
+      // Check for conflicts
+      const occupied: { startMin: number; endMin: number }[] = [];
+      for (const lesson of schedule.lessons as Lesson[]) {
+        const startMin = timeToMinutes(lesson.time);
+        const endMin = startMin + lesson.duration;
+        occupied.push({ startMin, endMin });
+      }
+
+      const requestedStart = timeToMinutes(time);
+      const requestedEnd = requestedStart + duration;
+      const overlaps = occupied.some(
+        (occ) => requestedStart < occ.endMin && requestedEnd > occ.startMin,
+      );
+
+      if (overlaps) {
+        console.warn(`Skipping ${date} - time slot conflict`);
+        continue;
+      }
+
+      // Create lesson
+      const lessonId =
+        Date.now().toString(36) + Math.random().toString(36).slice(2);
+      const newLesson: Lesson = {
+        lessonId,
+        studentId,
+        time,
+        duration,
+        bookId: bookId ?? null,
+        zoomLink: teacher.zoomLink,
+        completed: false,
+        status: "no_answer_on_time" as const,
+        state: "scheduled" as const,
+      };
+
+      await ctx.db.patch(schedule._id, {
+        lessons: [...schedule.lessons, newLesson],
+      });
+
+      createdLessons.push({ scheduleId: schedule._id, lessonId });
+    }
+
+    // Auto-assign teacher
+    if (student.currentTeacher !== teacherId) {
+      await ctx.db.patch(studentId, { currentTeacher: teacherId });
+    }
+
+    return {
+      success: true,
+      created: createdLessons.length,
+      skipped: dates.length - createdLessons.length,
+      lessons: createdLessons,
+    };
+  },
+});
+
+// STUDENT REQUEST RESCHEDULE (mirror of teacher version)
+export const studentRequestReschedule = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+    newDate: v.string(),
+    newTime: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { scheduleId, lessonId, newDate, newTime, reason }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const student = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!student || student.role !== "student") {
+      throw new Error("Only students can request reschedule");
+    }
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule) throw new Error("Schedule not found");
+
+    const lesson = schedule.lessons.find((l) => l.lessonId === lessonId);
+    if (!lesson || lesson.studentId !== student._id) {
+      throw new Error("Not your lesson");
+    }
+
+    if (lesson.state !== "scheduled") {
+      throw new Error("Can only reschedule scheduled lessons");
+    }
+
+    // Check if new time is available
+    const availableSlots = await ctx.runQuery(api.schedules.getAvailableSlots, {
+      teacherId: schedule.teacherId,
+      date: newDate,
+      duration: lesson.duration,
+    });
+
+    if (!availableSlots.includes(newTime)) {
+      throw new Error("Proposed time is not available");
+    }
+
+    // Check for existing pending request
+    const existingRequest = await ctx.db
+      .query("rescheduleRequests")
+      .withIndex("by_schedule_lesson", (q) =>
+        q.eq("scheduleId", scheduleId).eq("lessonId", lessonId),
+      )
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .first();
+
+    if (existingRequest) {
+      throw new Error("There is already a pending reschedule request");
+    }
+
+    // Create reschedule request (teacher will approve)
+    await ctx.db.insert("rescheduleRequests", {
+      scheduleId,
+      lessonId,
+      requestedBy: student._id,
+      requestedAt: Date.now(),
+      status: "pending",
+      originalDate: schedule.date,
+      originalTime: lesson.time,
+      newDate,
+      newTime,
+      reason,
+    });
+
+    return { success: true, status: "pending" };
+  },
+});
