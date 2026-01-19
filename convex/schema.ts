@@ -292,4 +292,14 @@ export default defineSchema({
     .index("by_teacher", ["teacherId"]) // For quick stats aggregation
     .index("by_lesson", ["scheduleId", "lessonId"]) // To check if rated
     .index("by_student_lesson", ["studentId", "scheduleId", "lessonId"]),
+
+  teacherAvailability: defineTable({
+    teacherId: v.id("users"),
+    dayOfWeek: v.number(), // 0=Sun, 1=Mon, ... 6=Sat (only 1-5 populated)
+    startTime: v.string(), // "10:00" local
+    endTime: v.string(), // "17:00" local
+    isActive: v.boolean(),
+  })
+    .index("by_teacher", ["teacherId"])
+    .index("by_teacher_day", ["teacherId", "dayOfWeek"]),
 });

@@ -31,6 +31,8 @@
 // import { CurrentBookViewerPretty } from "@/app/components/CurrentBookViewerPretty";
 // import { toast } from "sonner";
 // import { TeacherProfileCard } from "@/app/components/TeacherProfileCard";
+// import { CancelLessonDialog } from "@/app/components/CancelLessonDialog";
+// import { RescheduleDialog } from "@/app/components/RescheduleDialog"; // ← NEW: Import RescheduleDialog (create this component as shown below)
 
 // // FINAL FIXED TYPE — This is the only one you need
 // type LessonRow = {
@@ -226,9 +228,9 @@
 //           </motion.div>
 //         )}
 
-//         {/* Profile Card */}
-//         {/* Beautiful Full Teacher Profile Card */}
+//         {/* Current Teacher Profile */}
 //         <TeacherProfileCard teacherId={currentUser.currentTeacher} />
+
 //         {/* Upcoming Lessons */}
 //         <motion.div
 //           initial={{ opacity: 0, y: 20 }}
@@ -242,7 +244,7 @@
 //                 Upcoming Lessons
 //               </CardTitle>
 //               {upcomingLessons.length === 0 && (
-//                 <CardDescription className="text-muted-foreground dark:text-purple-400/70 font-serif italic">
+//                 <CardDescription className="text-muted-foreground dark:text-purple-400/70 font-serif">
 //                   No lessons scheduled yet.
 //                 </CardDescription>
 //               )}
@@ -285,7 +287,7 @@
 //                 Choose / Change Preferred Teacher
 //               </CardTitle>
 //               <CardDescription className="text-muted-foreground dark:text-purple-400/70 font-serif">
-//                 Pick any teacher who who teaches {currentUser.instrument}.
+//                 Pick any teacher who teaches {currentUser.instrument}.
 //               </CardDescription>
 //             </CardHeader>
 //             <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -374,22 +376,6 @@
 // }
 
 // function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
-//   const deleteLesson = useMutation(api.schedules.deleteLesson);
-
-//   const handleCancel = async (
-//     scheduleId: Id<"schedules">,
-//     lessonId: string,
-//   ) => {
-//     if (!confirm("Are you sure you want to cancel this lesson?")) return;
-
-//     try {
-//       await deleteLesson({ scheduleId, lessonId });
-//       toast.success("Lesson cancelled successfully");
-//     } catch {
-//       toast.error("Failed to cancel lesson");
-//     }
-//   };
-
 //   return (
 //     <div className="rounded-lg border border-purple-800/30 overflow-hidden">
 //       <Table>
@@ -477,12 +463,7 @@
 //                   )}
 //                 </TableCell>
 //                 <TableCell className="flex gap-2">
-//                   <Button
-//                     variant="link"
-//                     size="sm"
-//                     className="text-primary hover:text-primary/80 dark:text-purple-400 dark:hover:text-purple-300"
-//                     asChild
-//                   >
+//                   <Button variant="link" size="sm" asChild>
 //                     <Link
 //                       href={`/dashboard/lesson/${l.scheduleId}/${l.lessonId}`}
 //                     >
@@ -492,16 +473,25 @@
 //                     </Link>
 //                   </Button>
 
+//                   {/* ADD THIS - Only show for scheduled lessons */}
 //                   {l.state === "scheduled" && (
-//                     <Button
-//                       size="sm"
-//                       variant="destructive"
-//                       onClick={() => handleCancel(l.scheduleId, l.lessonId)}
-//                       className="text-xs"
-//                     >
-//                       <Trash2 className="h-3 w-3 mr-1" />
-//                       Cancel
-//                     </Button>
+//                     <RescheduleDialog
+//                       scheduleId={l.scheduleId}
+//                       lessonId={l.lessonId}
+//                       teacherId={l.teacherId}
+//                       duration={l.duration}
+//                     />
+//                   )}
+
+//                   {l.state === "scheduled" && (
+//                     <CancelLessonDialog
+//                       scheduleId={l.scheduleId}
+//                       lessonId={l.lessonId}
+//                       date={l.date}
+//                       time={l.time}
+//                       duration={l.duration}
+//                       isStudent={true}
+//                     />
 //                   )}
 //                 </TableCell>
 //               </motion.tr>
@@ -512,8 +502,6 @@
 //     </div>
 //   );
 // }
-// app/dashboard/student/page.tsx
-
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
@@ -547,7 +535,8 @@ import LiveClock from "@/app/components/LiveClock";
 import { CurrentBookViewerPretty } from "@/app/components/CurrentBookViewerPretty";
 import { toast } from "sonner";
 import { TeacherProfileCard } from "@/app/components/TeacherProfileCard";
-import { CancelLessonDialog } from "@/app/components/CancelLessonDialog"; // ← NEW: Import CancelLessonDialog
+import { CancelLessonDialog } from "@/app/components/CancelLessonDialog";
+import { StudentRescheduleDialog } from "@/app/components/StudentRescheduleDialog";
 
 // FINAL FIXED TYPE — This is the only one you need
 type LessonRow = {
@@ -743,9 +732,9 @@ export default function StudentDashboard() {
           </motion.div>
         )}
 
-        {/* Profile Card */}
-        {/* Beautiful Full Teacher Profile Card */}
+        {/* Current Teacher Profile */}
         <TeacherProfileCard teacherId={currentUser.currentTeacher} />
+
         {/* Upcoming Lessons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -759,7 +748,7 @@ export default function StudentDashboard() {
                 Upcoming Lessons
               </CardTitle>
               {upcomingLessons.length === 0 && (
-                <CardDescription className="text-muted-foreground dark:text-purple-400/70 font-serif italic">
+                <CardDescription className="text-muted-foreground dark:text-purple-400/70 font-serif">
                   No lessons scheduled yet.
                 </CardDescription>
               )}
@@ -802,7 +791,7 @@ export default function StudentDashboard() {
                 Choose / Change Preferred Teacher
               </CardTitle>
               <CardDescription className="text-muted-foreground dark:text-purple-400/70 font-serif">
-                Pick any teacher who who teaches {currentUser.instrument}.
+                Pick any teacher who teaches {currentUser.instrument}.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -978,12 +967,7 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                   )}
                 </TableCell>
                 <TableCell className="flex gap-2">
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="text-primary hover:text-primary/80 dark:text-purple-400 dark:hover:text-purple-300"
-                    asChild
-                  >
+                  <Button variant="link" size="sm" asChild>
                     <Link
                       href={`/dashboard/lesson/${l.scheduleId}/${l.lessonId}`}
                     >
@@ -992,6 +976,18 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                         : "View"}
                     </Link>
                   </Button>
+
+                  {/* ADD THIS - Only show for scheduled lessons */}
+                  {l.state === "scheduled" && (
+                    <StudentRescheduleDialog
+                      scheduleId={l.scheduleId}
+                      lessonId={l.lessonId}
+                      teacherId={l.teacherId}
+                      duration={l.duration}
+                      currentDate={l.date}
+                      currentTime={l.time}
+                    />
+                  )}
 
                   {l.state === "scheduled" && (
                     <CancelLessonDialog
