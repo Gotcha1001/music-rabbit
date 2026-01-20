@@ -508,7 +508,7 @@ import { useQuery, useMutation } from "convex/react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
+import { format } from "date-fns"; // CHANGED: Ensure this is imported for date comparisons
 import { motion } from "framer-motion";
 import { Id, Doc } from "../../../../convex/_generated/dataModel";
 import { api } from "../../../../convex/_generated/api";
@@ -880,6 +880,8 @@ function BookTitle({ id }: { id: Id<"books"> | null | undefined }) {
 }
 
 function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
+  const today = format(new Date(), "yyyy-MM-dd"); // CHANGED: Added for same-day check
+
   return (
     <div className="rounded-lg border border-purple-800/30 overflow-hidden">
       <Table>
@@ -905,6 +907,7 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
             const startMs = new Date(`${l.date}T${l.time}:00`).getTime();
             const isUpcoming =
               l.state === "scheduled" || l.state === "in_progress";
+            const isSameDay = l.date === today; // CHANGED: Added for same-day reschedule check
 
             return (
               <motion.tr
@@ -977,8 +980,8 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                     </Link>
                   </Button>
 
-                  {/* ADD THIS - Only show for scheduled lessons */}
-                  {l.state === "scheduled" && (
+                  {/* CHANGED: Wrap dialog with trigger button; add same-day check */}
+                  {l.state === "scheduled" && isSameDay && (
                     <StudentRescheduleDialog
                       scheduleId={l.scheduleId}
                       lessonId={l.lessonId}
@@ -986,7 +989,11 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                       duration={l.duration}
                       currentDate={l.date}
                       currentTime={l.time}
-                    />
+                    >
+                      <Button variant="outline" size="sm">
+                        Reschedule
+                      </Button>
+                    </StudentRescheduleDialog>
                   )}
 
                   {l.state === "scheduled" && (
