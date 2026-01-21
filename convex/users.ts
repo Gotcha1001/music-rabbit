@@ -1,11 +1,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 
 export const createOrGet = mutation({
   args: {
     inviteCode: v.optional(v.string()),
     role: v.optional(
-      v.union(v.literal("admin"), v.literal("teacher"), v.literal("student"))
+      v.union(v.literal("admin"), v.literal("teacher"), v.literal("student")),
     ),
   },
   handler: async (ctx, args) => {
@@ -126,7 +127,7 @@ export const updateRole = mutation({
     role: v.union(
       v.literal("admin"),
       v.literal("teacher"),
-      v.literal("student")
+      v.literal("student"),
     ),
     instrument: v.optional(v.string()),
   },
@@ -232,6 +233,13 @@ export const setInstrument = mutation({
     if (!user) throw new Error("User not found");
 
     await ctx.db.patch(user._id, { instrument });
+
+    // ✅ Auto-initialize availability for teachers
+    if (user.role === "teacher" && user.timezone) {
+      await ctx.runMutation(api.availability.autoSetAvailability, {
+        teacherId: user._id,
+      });
+    }
   },
 });
 
@@ -241,7 +249,7 @@ export const getTeachersByInstrument = query({
     return await ctx.db
       .query("users")
       .withIndex("by_role_instrument", (q) =>
-        q.eq("role", "teacher").eq("instrument", instrument)
+        q.eq("role", "teacher").eq("instrument", instrument),
       )
       .collect();
   },
