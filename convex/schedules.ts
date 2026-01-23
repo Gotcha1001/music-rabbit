@@ -3474,6 +3474,39 @@ function minutesToTime(minutes: number): string {
   return `${h}:${m}`;
 }
 
+// ============================================================================
+// HELPER: Find next available slot (earliest possible, respects local 10-17)
+// ============================================================================
+function findNextAvailableSlot(
+  occupiedSlots: { startMin: number; endMin: number }[],
+  duration: number,
+  date: string, // yyyy-MM-dd
+  teacherTimezone: string,
+): string | null {
+  if (!teacherTimezone) return null;
+
+  // Convert local 10:00-17:00 to UTC minutes (same as getAvailableSlots)
+  const startLocal = fromZonedTime(
+    new Date(`${date}T10:00:00`),
+    teacherTimezone,
+  );
+  const endLocal = fromZonedTime(new Date(`${date}T17:00:00`), teacherTimezone);
+  const startMin = timeToMinutes(format(startLocal, "HH:mm"));
+  const endMin = timeToMinutes(format(endLocal, "HH:mm"));
+
+  for (let min = startMin; min <= endMin - duration; min += 30) {
+    const slotStart = min;
+    const slotEnd = min + duration + 1; // +1 min gap
+    const hasConflict = occupiedSlots.some(
+      (occ) => slotStart < occ.endMin && slotEnd > occ.startMin,
+    );
+    if (!hasConflict) {
+      return minutesToTime(min);
+    }
+  }
+  return null;
+}
+
 // Helper: Check if date is Mon-Fri
 function isWorkingDay(dateStr: string): boolean {
   const date = new Date(dateStr);
@@ -4381,7 +4414,7 @@ export const getAvailableSlots = query({
     // Teacher's local 10 AM - 5 PM (17:00) in UTC minutes
     const startLocal = fromZonedTime(
       new Date(`${date}T10:00:00`),
-      teacher.timezone,
+      teacher.timezone ?? (() => { throw new Error("Teacher timezone not set"); })(),
     );
     const endLocal = fromZonedTime(
       new Date(`${date}T17:00:00`),
@@ -5324,6 +5357,328 @@ export const studentRequestReschedule = mutation({
     });
 
     return { success: true, status: "pending" };
+  },
+});
+
+// ============================================================================
+// SMART BULK SCHEDULE (Find slots automatically for one student)
+// ============================================================================
+export const smartBulkSchedule = mutation({
+  args: {
+    teacherId: v.id("users"),
+    studentId: v.id("users"),
+    startDate: v.string(),
+    weeksAhead: v.number(),
+  },
+  handler: async (ctx, { teacherId, studentId, startDate, weeksAhead }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const admin = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+
+    const teacher = await ctx.db.get(teacherId);
+    const student = await ctx.db.get(studentId);
+    if (!teacher || !teacher.timezone) {
+      throw new Error("Teacher timezone not set");
+    }
+    if (!student) {
+      throw new Error("Student not found");
+    }
+
+    // Get active package
+    const activePackage = await ctx.db
+      .query("studentPackages")
+      .withIndex("by_student", (q) => q.eq("studentId", studentId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "active"),
+          q.gt(q.field("remainingMinutes"), 0),
+        ),
+      )
+      .first();
+    if (!activePackage) {
+      throw new Error("Student does not have an active package");
+    }
+
+    // Generate dates
+    const dates = generateRecurringDates(
+      startDate,
+      weeksAhead,
+      activePackage.lessonsPerWeek,
+    );
+
+    let created = 0;
+    let skipped = 0;
+    const createdLessons: { date: string; time: string }[] = [];
+
+    for (const date of dates) {
+      if (!isWorkingDay(date)) {
+        skipped++;
+        continue;
+      }
+
+      // Get or create schedule
+      let schedule = await ctx.db
+        .query("schedules")
+        .withIndex("by_teacher_date", (q) =>
+          q.eq("teacherId", teacherId).eq("date", date),
+        )
+        .first();
+      if (!schedule) {
+        const newId = await ctx.db.insert("schedules", {
+          teacherId,
+          date,
+          lessons: [],
+        });
+        schedule = await ctx.db.get(newId);
+        if (!schedule) continue;
+      }
+
+      // Build occupied slots
+      const occupied: { startMin: number; endMin: number }[] = [];
+      for (const lesson of schedule.lessons) {
+        const startMin = timeToMinutes(lesson.time);
+        const endMin = startMin + lesson.duration + 1;
+        occupied.push({ startMin, endMin });
+      }
+
+      // Find next available slot (now timezone-aware)
+      if (!teacher.timezone) {
+        skipped++;
+        continue;
+      }
+      const availableTime = findNextAvailableSlot(
+        occupied,
+        activePackage.minutesPerLesson,
+        date,
+        teacher.timezone ?? "",
+      );
+      if (!availableTime) {
+        skipped++;
+        continue;
+      }
+
+      // Create lesson
+      const lessonId =
+        Date.now().toString(36) + Math.random().toString(36).slice(2);
+      const newLesson = {
+        lessonId,
+        studentId,
+        time: availableTime,
+        duration: activePackage.minutesPerLesson,
+        bookId: null,
+        zoomLink: teacher.zoomLink,
+        completed: false,
+        status: "no_answer_on_time" as const,
+        state: "scheduled" as const,
+      };
+
+      await ctx.db.patch(schedule._id, {
+        lessons: [...schedule.lessons, newLesson],
+      });
+
+      createdLessons.push({ date, time: availableTime });
+      created++;
+    }
+
+    // Auto-assign teacher
+    if (student.currentTeacher !== teacherId) {
+      await ctx.db.patch(studentId, { currentTeacher: teacherId });
+    }
+
+    return {
+      success: true,
+      created,
+      skipped,
+      lessons: createdLessons,
+    };
+  },
+});
+
+// ============================================================================
+// AUTO-ASSIGN LESSONS FOR ENTIRE COMPANY (Monthly)
+// ============================================================================
+export const autoScheduleEntireCompany = mutation({
+  args: {
+    startDate: v.string(), // yyyy-MM-dd
+    weeksAhead: v.number(),
+  },
+  handler: async (ctx, { startDate, weeksAhead }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const admin = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+
+    // Get all teachers and students
+    const allTeachers = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "teacher"))
+      .collect();
+    const allStudents = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "student"))
+      .collect();
+
+    let totalCreated = 0;
+    let totalSkipped = 0;
+    const results: {
+      studentName: string;
+      teacherName: string;
+      lessonsCreated: number;
+      reason?: string;
+    }[] = [];
+
+    // Loop through each student
+    for (const student of allStudents) {
+      // Get active package
+      const activePackage = await ctx.db
+        .query("studentPackages")
+        .withIndex("by_student", (q) => q.eq("studentId", student._id))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("status"), "active"),
+            q.gt(q.field("remainingMinutes"), 0),
+          ),
+        )
+        .first();
+
+      if (!activePackage) {
+        results.push({
+          studentName: student.name || student.email,
+          teacherName: "N/A",
+          lessonsCreated: 0,
+          reason: "No active package",
+        });
+        continue;
+      }
+
+      // Find a teacher for this student's instrument
+      const teacher = allTeachers.find(
+        (t) => t.instrument === student.instrument && t.timezone,
+      );
+      if (!teacher) {
+        results.push({
+          studentName: student.name || student.email,
+          teacherName: "N/A",
+          lessonsCreated: 0,
+          reason: `No teacher for ${student.instrument}`,
+        });
+        continue;
+      }
+
+      // Generate dates based on package
+      const dates = generateRecurringDates(
+        startDate,
+        weeksAhead,
+        activePackage.lessonsPerWeek,
+      );
+
+      let studentLessonsCreated = 0;
+      let studentSkipped = 0;
+
+      // For each date, find available slot
+      for (const date of dates) {
+        if (!isWorkingDay(date)) {
+          studentSkipped++;
+          continue;
+        }
+
+        // Get teacher's schedule for this date
+        let schedule = await ctx.db
+          .query("schedules")
+          .withIndex("by_teacher_date", (q) =>
+            q.eq("teacherId", teacher._id).eq("date", date),
+          )
+          .first();
+        if (!schedule) {
+          const newId = await ctx.db.insert("schedules", {
+            teacherId: teacher._id,
+            date,
+            lessons: [],
+          });
+          schedule = await ctx.db.get(newId);
+          if (!schedule) continue;
+        }
+
+        // Build occupied slots
+        const occupied: { startMin: number; endMin: number }[] = [];
+        for (const lesson of schedule.lessons) {
+          const startMin = timeToMinutes(lesson.time);
+          const endMin = startMin + lesson.duration + 1;
+          occupied.push({ startMin, endMin });
+        }
+
+        // Find next available slot (timezone-aware)
+        const availableTime = findNextAvailableSlot(
+          occupied,
+          activePackage.minutesPerLesson,
+          date,
+          teacher.timezone ?? "",
+        );
+        if (!availableTime) {
+          studentSkipped++;
+          continue;
+        }
+
+        // Create lesson
+        const lessonId =
+          Date.now().toString(36) + Math.random().toString(36).slice(2);
+        const newLesson = {
+          lessonId,
+          studentId: student._id,
+          time: availableTime,
+          duration: activePackage.minutesPerLesson,
+          bookId: null,
+          zoomLink: teacher.zoomLink,
+          completed: false,
+          status: "no_answer_on_time" as const,
+          state: "scheduled" as const,
+        };
+
+        await ctx.db.patch(schedule._id, {
+          lessons: [...schedule.lessons, newLesson],
+        });
+
+        studentLessonsCreated++;
+        totalCreated++;
+      }
+
+      // Auto-assign teacher to student
+      if (student.currentTeacher !== teacher._id) {
+        await ctx.db.patch(student._id, { currentTeacher: teacher._id });
+      }
+
+      results.push({
+        studentName: student.name || student.email,
+        teacherName: teacher.name || teacher.email,
+        lessonsCreated: studentLessonsCreated,
+        reason:
+          studentSkipped > 0
+            ? `${studentSkipped} slots unavailable`
+            : undefined,
+      });
+      totalSkipped += studentSkipped;
+    }
+
+    return {
+      success: true,
+      totalCreated,
+      totalSkipped,
+      studentsProcessed: allStudents.length,
+      results,
+    };
   },
 });
 
