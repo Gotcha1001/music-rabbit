@@ -913,6 +913,8 @@ import {
   ExternalLink,
   Download,
   Loader2,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1790,7 +1792,7 @@ export default function AdminDashboard() {
   );
 }
 
-// NEW: Bulk Scheduling Subcomponent (added inside the component)
+// NEW: Enhanced Bulk Scheduling with Auto-Find Slots
 function BulkSchedulingSection() {
   const [selectedStudent, setSelectedStudent] = useState<Id<"users"> | null>(
     null,
@@ -1802,155 +1804,192 @@ function BulkSchedulingSection() {
   const [startDate, setStartDate] = useState<string>(
     format(new Date(), "yyyy-MM-dd"),
   );
-  const [time, setTime] = useState<string>("10:00"); // Default time
-
-  const activePackage = useQuery(
-    api.studentPackages.getActivePackage,
-    selectedStudent ? { studentId: selectedStudent } : "skip",
-  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const allStudents = useQuery(api.users.getAllStudents) ?? [];
   const allTeachers = useQuery(api.users.getAllTeachers) ?? [];
-
-  const adminBulkCreateLessons = useMutation(
-    api.schedules.adminBulkCreateLessons,
+  const smartBulkSchedule = useMutation(api.schedules.smartBulkSchedule);
+  const autoScheduleCompany = useMutation(
+    api.schedules.autoScheduleEntireCompany,
   );
-
-  // Helper function for isWorkingDay
-  const isWorkingDay = (dateStr: string): boolean => {
-    const date = new Date(dateStr);
-    return (
-      isMonday(date) ||
-      isTuesday(date) ||
-      isWednesday(date) ||
-      isThursday(date) ||
-      isFriday(date)
-    );
-  };
-
-  // Generate dates based on lessonsPerWeek (spread Mon-Fri)
-  const generateRecurringDates = (lessonsPerWeek: number): string[] => {
-    const dates: string[] = [];
-    let current = new Date(startDate);
-    const endDate = addDays(current, weeksAhead * 7);
-
-    let weeklyCount = 0;
-    while (current < endDate) {
-      const dateStr = format(current, "yyyy-MM-dd");
-      if (isWorkingDay(dateStr) && weeklyCount < lessonsPerWeek) {
-        dates.push(dateStr);
-        weeklyCount++;
-      }
-      if (weeklyCount === lessonsPerWeek) {
-        // Move to next week
-        current = addDays(current, 7 - weeklyCount + 1); // Reset for next week
-        weeklyCount = 0;
-      } else {
-        current = addDays(current, 1);
-      }
+  // Manual smart schedule (1 student, auto-find slots)
+  const handleSmartSchedule = async () => {
+    if (!selectedTeacher || !selectedStudent) {
+      toast.error("Please select both teacher and student");
+      return;
     }
-    return dates;
-  };
-
-  const handleBulkSchedule = async () => {
-    if (!selectedTeacher || !selectedStudent || !activePackage)
-      return toast.error("Missing details");
-
-    const dates = generateRecurringDates(activePackage.lessonsPerWeek);
-    if (dates.length === 0) return toast.error("No valid dates generated");
-
+    setIsSubmitting(true);
     try {
-      await adminBulkCreateLessons({
+      const result = await smartBulkSchedule({
         teacherId: selectedTeacher,
         studentId: selectedStudent,
-        dates,
-        time,
-        duration: activePackage.minutesPerLesson,
-        bookId: undefined, // Add UI for book if needed
+        startDate,
+        weeksAhead,
       });
-      toast.success(`Scheduled ${dates.length} lessons based on package!`);
+      toast.success(
+        `✅ Created ${result.created} lessons! ${
+          result.skipped > 0 ? `(${result.skipped} skipped)` : ""
+        }`,
+      );
+      setSelectedStudent(null);
+      setSelectedTeacher(null);
     } catch (error) {
-      toast.error((error as Error).message);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to schedule";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
+  // Auto-schedule entire company
+  const handleAutoScheduleCompany = async () => {
+    if (!confirm("⚠️ This will schedule lessons for ALL students. Continue?")) {
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const result = await autoScheduleCompany({
+        startDate,
+        weeksAhead,
+      });
+      toast.success(
+        `🎉 Company-wide scheduling complete!\n✅ ${result.totalCreated} lessons created\n📊 ${result.studentsProcessed} students processed`,
+      );
+      // Show detailed results
+      console.log("Scheduling Results:", result.results);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to schedule";
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   return (
-    <Card className="bg-card border-2 border-border shadow-lg">
+    <Card className="bg-gradient-to-br from-purple-950/60 to-black/60 border-2 border-purple-800/30 shadow-lg">
       <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-2xl font-serif">
-          <Calendar className="h-7 w-7 text-primary" />
-          Bulk Schedule Lessons (Based on Package)
+        <CardTitle className="flex items-center gap-3 text-2xl font-serif text-purple-200">
+          <Calendar className="h-7 w-7 text-purple-400" />
+          Smart Bulk Scheduling
         </CardTitle>
+        <p className="text-purple-400 text-sm mt-2">
+          Automatically find available slots based on packages
+        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <Label>Student</Label>
-          <Select onValueChange={(v) => setSelectedStudent(v as Id<"users">)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select Student" />
-            </SelectTrigger>
-            <SelectContent>
-              {allStudents.map((s) => (
-                <SelectItem key={s._id} value={s._id}>
-                  {s.name || s.email.split("@")[0]} (
-                  {s.instrument || "No instrument"})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <CardContent className="space-y-6">
+        {/* Global Settings */}
+        <div className="grid grid-cols-2 gap-4 p-4 bg-purple-900/20 rounded-lg border border-purple-700/50">
+          <div>
+            <Label className="text-purple-300">Start Date</Label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-purple-900/30 border-purple-700 text-purple-200"
+            />
+          </div>
+          <div>
+            <Label className="text-purple-300">Weeks Ahead</Label>
+            <Input
+              type="number"
+              value={weeksAhead}
+              onChange={(e) => setWeeksAhead(parseInt(e.target.value))}
+              min={1}
+              max={12}
+              className="bg-purple-900/30 border-purple-700 text-purple-200"
+            />
+          </div>
         </div>
-        <div>
-          <Label>Teacher</Label>
-          <Select onValueChange={(v) => setSelectedTeacher(v as Id<"users">)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select Teacher" />
-            </SelectTrigger>
-            <SelectContent>
-              {allTeachers.map((t) => (
-                <SelectItem key={t._id} value={t._id}>
-                  {t.name || t.email.split("@")[0]} (
-                  {t.instrument || "No instrument"})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {activePackage && (
-          <p className="text-muted-foreground">
-            Package: {activePackage.lessonsPerWeek} lessons/week,{" "}
-            {activePackage.minutesPerLesson} min/lesson
+        {/* Company-Wide Auto-Schedule */}
+        <div className="p-6 bg-gradient-to-br from-emerald-900/30 to-green-900/20 rounded-lg border-2 border-emerald-700/50">
+          <h3 className="text-xl font-bold text-emerald-200 mb-3 flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            🚀 Auto-Schedule Entire Company
+          </h3>
+          <p className="text-emerald-300/80 text-sm mb-4">
+            Automatically assign lessons for ALL students based on their
+            packages. System will find available slots for each teacher.
           </p>
-        )}
-        <div>
-          <Label>Start Date</Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
+          <Button
+            onClick={handleAutoScheduleCompany}
+            disabled={isSubmitting}
+            className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold py-3"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Scheduling Company-Wide...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-5 w-5" />
+                Schedule Entire Company ({allStudents.length} Students)
+              </>
+            )}
+          </Button>
         </div>
-        <div>
-          <Label>Weeks Ahead</Label>
-          <Input
-            type="number"
-            value={weeksAhead}
-            onChange={(e) => setWeeksAhead(parseInt(e.target.value))}
-            min={1}
-          />
+        {/* Manual Smart Schedule (Single Student) */}
+        <div className="p-6 bg-purple-900/20 rounded-lg border border-purple-700/50">
+          <h3 className="text-lg font-bold text-purple-200 mb-3">
+            📅 Manual Smart Schedule (Single Student)
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-purple-300">Student</Label>
+              <Select
+                onValueChange={(v) => setSelectedStudent(v as Id<"users">)}
+                value={selectedStudent || undefined}
+              >
+                <SelectTrigger className="bg-purple-900/30 border-purple-700 text-purple-200">
+                  <SelectValue placeholder="Select Student" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allStudents.map((s) => (
+                    <SelectItem key={s._id} value={s._id}>
+                      {s.name || s.email.split("@")[0]} (
+                      {s.instrument || "No instrument"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-purple-300">Teacher</Label>
+              <Select
+                onValueChange={(v) => setSelectedTeacher(v as Id<"users">)}
+                value={selectedTeacher || undefined}
+              >
+                <SelectTrigger className="bg-purple-900/30 border-purple-700 text-purple-200">
+                  <SelectValue placeholder="Select Teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allTeachers.map((t) => (
+                    <SelectItem key={t._id} value={t._id}>
+                      {t.name || t.email.split("@")[0]} (
+                      {t.instrument || "No instrument"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleSmartSchedule}
+              disabled={!selectedTeacher || !selectedStudent || isSubmitting}
+              className="w-full bg-purple-700 hover:bg-purple-600 text-white"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Finding Slots...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Auto-Find Slots & Schedule
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-        <div>
-          <Label>Lesson Time (same for all)</Label>
-          <Input
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-          />
-        </div>
-        <Button
-          onClick={handleBulkSchedule}
-          disabled={!activePackage || !selectedTeacher || !selectedStudent}
-        >
-          <Plus className="mr-2 h-4 w-4" /> Create Bulk Schedule
-        </Button>
       </CardContent>
     </Card>
   );
