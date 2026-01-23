@@ -188,6 +188,7 @@ export default defineSchema({
       v.literal("cancelled"),
     ),
     stripeSubscriptionId: v.optional(v.string()),
+    source: v.optional(v.union(v.literal("paid"), v.literal("draw"))),
   })
     .index("by_student", ["studentId"])
     .index("by_status", ["status"])
