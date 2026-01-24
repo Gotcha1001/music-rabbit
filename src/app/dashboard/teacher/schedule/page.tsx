@@ -465,6 +465,10 @@
 //       return null;
 //   }
 // }
+// App/dashboard/teacher/shedule page.tsx - FIXED to show only today's lessons
+
+// App/dashboard/teacher/shedule page.tsx - FIXED to show only today's lessons
+
 "use client";
 
 import { useQuery } from "convex/react";
@@ -473,7 +477,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
-
 import Link from "next/link";
 import {
   Card,
@@ -493,7 +496,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
 import {
   Loader2,
   Video,
@@ -504,11 +506,12 @@ import {
   PlayCircle,
   CheckCircle,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
 } from "lucide-react";
-
 import LiveClock from "@/app/components/LiveClock";
 import { EarningsSummaryCard } from "@/app/components/EarningsSummaryCard";
-
 import { Doc, Id } from "../../../../../convex/_generated/dataModel";
 import { api } from "../../../../../convex/_generated/api";
 import TeacherStatsComponent from "../stats/page";
@@ -567,18 +570,40 @@ export default function TeacherDashboard() {
   }, [currentUser, router]);
 
   const schedules =
-    useQuery(
+    (useQuery(
       api.schedules.getByTeacherWithTimezones,
       currentUser ? { teacherId: currentUser._id } : "skip",
-    ) ?? [];
+    ) as Schedule[]) || [];
 
   const messages =
-    useQuery(
+    (useQuery(
       api.messages.getByUser,
       currentUser ? { userId: currentUser._id } : "skip",
-    ) ?? [];
+    ) as Doc<"messages">[]) || [];
 
   const [now] = useState<number>(() => Date.now());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  // Navigate to previous/next day
+  const goToPreviousDay = () => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() - 1);
+      return newDate;
+    });
+  };
+
+  const goToNextDay = () => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + 1);
+      return newDate;
+    });
+  };
+
+  const goToToday = () => {
+    setSelectedDate(new Date());
+  };
 
   if (!clerkLoaded || currentUser === undefined) {
     return (
@@ -601,14 +626,17 @@ export default function TeacherDashboard() {
           animate={{ opacity: 1, scale: 1 }}
           className="p-8 text-center text-red-500 bg-red-950/30 border-2 border-red-500/50 rounded-lg"
         >
-          <p className="text-xl font-serif">Access denied — teachers only</p>
+          <p className="text-xl font-serif">Access denied - teachers only</p>
         </motion.div>
       </div>
     );
   }
 
-  const upcomingSchedules = schedules.filter(
-    (s: Schedule) => new Date(s.date).getTime() >= now - 24 * 60 * 60 * 1000,
+  // ✅ FIXED: Filter to show ONLY selected date's schedule
+  const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+  const isToday = selectedDateStr === format(new Date(), "yyyy-MM-dd");
+  const daySchedules = schedules.filter(
+    (s: Schedule) => s.date === selectedDateStr,
   );
 
   return (
@@ -622,6 +650,7 @@ export default function TeacherDashboard() {
         >
           <LiveClock />
         </motion.div>
+
         <motion.h1
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
@@ -630,6 +659,7 @@ export default function TeacherDashboard() {
         >
           Welcome back, {clerkUser?.firstName || "Teacher"}! 🎵
         </motion.h1>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -652,17 +682,79 @@ export default function TeacherDashboard() {
               >
                 <Card className="bg-card border-2 border-border shadow-lg">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-3 text-card-foreground font-serif text-2xl">
-                      <Video className="h-7 w-7 text-primary" />
-                      Today&apos;s Schedule
-                    </CardTitle>
+                    <div className="flex items-center justify-between mb-4">
+                      <CardTitle className="flex items-center gap-3 text-card-foreground font-serif text-2xl">
+                        <Video className="h-7 w-7 text-primary" />
+                        Daily Schedule
+                      </CardTitle>
+                      {!isToday && (
+                        <Button
+                          onClick={goToToday}
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                        >
+                          <CalendarIcon className="h-4 w-4" />
+                          Back to Today
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Date Navigation */}
+                    <div className="flex items-center justify-between gap-4 p-4 bg-muted/30 rounded-lg border border-border">
+                      <Button
+                        onClick={goToPreviousDay}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous Day
+                      </Button>
+
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-foreground font-serif">
+                          {format(selectedDate, "EEEE")}
+                        </p>
+                        <p className="text-lg text-muted-foreground">
+                          {format(selectedDate, "MMMM d, yyyy")}
+                        </p>
+                        {isToday && (
+                          <Badge className="mt-1 bg-green-500 text-white">
+                            Today
+                          </Badge>
+                        )}
+                      </div>
+
+                      <Button
+                        onClick={goToNextDay}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        Next Day
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <CardDescription className="text-muted-foreground mt-4">
+                      {daySchedules.length === 0
+                        ? "No lessons scheduled for this day"
+                        : `${daySchedules.reduce((sum, s) => sum + s.lessons.length, 0)} lessons scheduled`}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ScheduleTable schedules={upcomingSchedules} now={now} />
+                    <ScheduleTable
+                      schedules={daySchedules}
+                      now={now}
+                      selectedDate={selectedDateStr}
+                    />
                   </CardContent>
                 </Card>
               </motion.div>
             </TabsContent>
+
+            {/* Other tabs remain the same */}
             <TabsContent value="stats">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -766,11 +858,9 @@ function StudentName({ id }: { id: Id<"users"> }) {
 
 function BookTitle({ id }: { id: Id<"books"> | null }) {
   const book = useQuery(api.books.getById, id ? { id } : "skip");
-
   if (!id || !book) {
     return <span className="text-muted-foreground">No book</span>;
   }
-
   return (
     <Button
       variant="link"
@@ -786,9 +876,11 @@ function BookTitle({ id }: { id: Id<"books"> | null }) {
 function ScheduleTable({
   schedules,
   now,
+  selectedDate,
 }: {
   schedules: Schedule[];
   now: number;
+  selectedDate: string;
 }) {
   if (schedules.length === 0) {
     return (
@@ -804,10 +896,13 @@ function ScheduleTable({
           <Video className="h-16 w-16 mx-auto mb-4 opacity-40 text-primary" />
         </motion.div>
         <p className="text-lg text-foreground font-serif">
-          No lessons scheduled
+          No lessons scheduled for{" "}
+          {format(new Date(selectedDate), "MMMM d, yyyy")}
         </p>
         <p className="text-sm text-muted-foreground mt-2 font-serif">
-          Check back later for your upcoming lessons
+          {selectedDate === format(new Date(), "yyyy-MM-dd")
+            ? "Enjoy your day off! 🎉"
+            : "Check another day using the navigation above"}
         </p>
       </motion.div>
     );
@@ -818,7 +913,6 @@ function ScheduleTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50 border-b border-border hover:bg-muted/70">
-            <TableHead className="text-foreground font-serif">Date</TableHead>
             <TableHead className="text-foreground font-serif">Time</TableHead>
             <TableHead className="text-foreground font-serif">
               Student
@@ -852,12 +946,7 @@ function ScheduleTable({
                   transition={{ delay: globalIndex * 0.05 }}
                   className="border-b border-border hover:bg-muted/30 transition-colors"
                 >
-                  {/* NEW: Add Date cell first to align with headers */}
-                  <TableCell className="text-foreground font-serif">
-                    {format(new Date(s.date), "MM/dd")}{" "}
-                    {/* Or use 'PPP' for full date */}
-                  </TableCell>
-                  <TableCell className="text-foreground font-serif">
+                  <TableCell className="text-foreground font-serif font-mono text-lg">
                     {l.time}
                   </TableCell>
                   <TableCell>
@@ -930,7 +1019,7 @@ function ScheduleTable({
                           variant="secondary"
                           className="mr-2 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-100"
                         >
-                          {l.status.replace("_", " ")}
+                          {l.status.replace("_", " ").toUpperCase()}
                         </Badge>
                       )}
                     {l.onTime === false && (
