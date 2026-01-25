@@ -1019,7 +1019,6 @@
 // App/dashboard/student page.tsx - FIXED to show only today's upcoming lessons
 
 // App/dashboard/student page.tsx - FIXED to show only today's upcoming lessons
-
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
@@ -1052,14 +1051,12 @@ import {
   Loader2,
   Video,
   FileText,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
 } from "lucide-react";
 import LiveClock from "@/app/components/LiveClock";
 import { CurrentBookViewerPretty } from "@/app/components/CurrentBookViewerPretty";
-import { toast } from "sonner";
 import { TeacherProfileCard } from "@/app/components/TeacherProfileCard";
 import { CancelLessonDialog } from "@/app/components/CancelLessonDialog";
 import { StudentRescheduleDialog } from "@/app/components/StudentRescheduleDialog";
@@ -1120,7 +1117,6 @@ export default function StudentDashboard() {
     await setMyTeacher(teacherId ? { teacherId } : {});
   };
 
-  const [now] = useState<number>(() => Date.now());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Navigate to previous/next day
@@ -1356,7 +1352,7 @@ export default function StudentDashboard() {
               )}
             </CardHeader>
             <CardContent>
-              <LessonsTable lessons={upcomingLessons} now={now} />
+              <LessonsTable lessons={upcomingLessons} />
             </CardContent>
           </Card>
         </motion.div>
@@ -1375,7 +1371,7 @@ export default function StudentDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <LessonsTable lessons={pastLessons} now={now} />
+                <LessonsTable lessons={pastLessons} />
               </CardContent>
             </Card>
           </motion.div>
@@ -1479,7 +1475,7 @@ function BookTitle({ id }: { id: Id<"books"> | null | undefined }) {
   );
 }
 
-function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
+function LessonsTable({ lessons }: { lessons: LessonRow[] }) {
   const today = format(new Date(), "yyyy-MM-dd");
 
   return (
@@ -1507,7 +1503,6 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
             const startMs = new Date(`${l.date}T${l.time}:00`).getTime();
             const isUpcoming =
               l.state === "scheduled" || l.state === "in_progress";
-            const isSameDay = l.date === today;
 
             return (
               <motion.tr
