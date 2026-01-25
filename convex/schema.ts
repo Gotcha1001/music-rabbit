@@ -259,6 +259,25 @@ export default defineSchema({
     .index("by_cancelled_by", ["cancelledBy"])
     .index("by_schedule", ["scheduleId"]),
 
+  rescheduleRequests: defineTable({
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+    requestedBy: v.id("users"),
+    requestedAt: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+    ),
+    originalDate: v.string(),
+    originalTime: v.string(),
+    newDate: v.string(),
+    newTime: v.string(),
+    reason: v.optional(v.string()),
+    respondedBy: v.optional(v.id("users")),
+    respondedAt: v.optional(v.number()),
+  }).index("by_status", ["status"]),
+
   lessonRatings: defineTable({
     scheduleId: v.id("schedules"),
     lessonId: v.string(), // Matches lesson.lessonId in schedules
