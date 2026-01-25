@@ -5110,3 +5110,54 @@ export const studentRescheduleLesson = mutation({
     return { success: true };
   },
 });
+
+export const teacherRequestReschedule = mutation({
+  args: {
+    scheduleId: v.id("schedules"),
+    lessonId: v.string(),
+    newDate: v.string(),
+    newTime: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { scheduleId, lessonId, newDate, newTime, reason }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const teacher = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!teacher || teacher.role !== "teacher") {
+      throw new Error("Only teachers can request reschedule");
+    }
+
+    const schedule = await ctx.db.get(scheduleId);
+    if (!schedule || schedule.teacherId !== teacher._id) {
+      throw new Error("Not your schedule");
+    }
+
+    const lesson = schedule.lessons.find((l) => l.lessonId === lessonId);
+    if (!lesson) throw new Error("Lesson not found");
+
+    if (lesson.state !== "scheduled") {
+      throw new Error("Can only reschedule scheduled lessons");
+    }
+
+    // Create reschedule request
+    await ctx.db.insert("rescheduleRequests", {
+      scheduleId,
+      lessonId,
+      requestedBy: teacher._id,
+      requestedAt: Date.now(),
+      status: "pending",
+      originalDate: schedule.date,
+      originalTime: lesson.time,
+      newDate,
+      newTime,
+      reason,
+    });
+
+    return { success: true, status: "pending" };
+  },
+});
