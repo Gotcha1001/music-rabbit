@@ -541,9 +541,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { Clock, AlertCircle, Calendar, Loader2 } from "lucide-react";
+import { format, getDay } from "date-fns";
+import {
+  Clock,
+  AlertCircle,
+  Calendar as CalendarIcon,
+  Loader2,
+} from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 
@@ -567,34 +574,26 @@ export function StudentRescheduleDialog({
   children,
 }: StudentRescheduleDialogProps) {
   const [open, setOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get available slots for today only
   const availableSlots = useQuery(
     api.schedules.getAvailableSlots,
-    open
+    selectedDate
       ? {
           teacherId,
-          date: currentDate,
+          date: format(selectedDate, "yyyy-MM-dd"),
           duration,
         }
       : "skip",
   );
 
-  const reschedule = useMutation(api.schedules.studentSelfRescheduleSameDay);
-
-  // Calculate if can reschedule (2+ hours advance)
-  const lessonDateTime = new Date(`${currentDate}T${currentTime}:00`);
-  const now = new Date();
-  const hoursToLesson =
-    (lessonDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-  const canReschedule = hoursToLesson >= 2;
+  const reschedule = useMutation(api.schedules.studentRescheduleLesson);
 
   const handleSubmit = async () => {
-    if (!selectedTime) {
-      toast.error("Please select a time");
+    if (!selectedDate || !selectedTime) {
+      toast.error("Please select a new date and time");
       return;
     }
 
@@ -603,11 +602,13 @@ export function StudentRescheduleDialog({
       await reschedule({
         scheduleId,
         lessonId,
+        newDate: format(selectedDate, "yyyy-MM-dd"),
         newTime: selectedTime,
-        reason: "Student requested same-day reschedule",
       });
+
       toast.success("Lesson rescheduled successfully!");
       setOpen(false);
+      setSelectedDate(undefined);
       setSelectedTime(undefined);
     } catch (err) {
       const errorMessage =
@@ -618,135 +619,101 @@ export function StudentRescheduleDialog({
     }
   };
 
+  // Merged from current: Calculate hours to lesson for potential UI feedback
+  const lessonDateTime = new Date(`${currentDate}T${currentTime}:00`);
+  const now = new Date();
+  const hoursToLesson =
+    (lessonDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const canReschedule = hoursToLesson >= 2; // But backend enforces it anyway
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children || (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canReschedule}
-            className="border-purple-600/50 text-purple-300 hover:bg-purple-900/30"
-          >
-            <Clock className="h-4 w-4 mr-2" />
-            Change Time
+          <Button variant="outline" size="sm">
+            📅 Reschedule
           </Button>
         )}
       </DialogTrigger>
+
       <DialogContent className="max-w-2xl bg-gradient-to-br from-purple-950 to-black border-purple-800/30">
         <DialogHeader>
           <DialogTitle className="text-purple-200 flex items-center gap-2 text-2xl">
-            <Calendar className="h-6 w-6" />
-            Change Lesson Time for Today
+            <CalendarIcon className="h-6 w-6" />
+            Reschedule Lesson
           </DialogTitle>
           <DialogDescription className="text-purple-300 text-base">
-            Currently scheduled for {format(lessonDateTime, "PPP")} at{" "}
-            {currentTime}
+            Pick any available time between 10 AM - 5 PM (teacher&apos;s local
+            time). Must be at least 2 hours in advance. Currently scheduled for{" "}
+            {format(lessonDateTime, "PPP")} at {currentTime}.
           </DialogDescription>
         </DialogHeader>
 
-        {!canReschedule ? (
-          <div className="flex items-start gap-3 p-6 bg-red-900/30 border border-red-700/50 rounded-lg">
-            <AlertCircle className="h-6 w-6 text-red-400 flex-shrink-0 mt-0.5" />
+        <div className="p-4 bg-purple-900/30 border border-purple-700/50 rounded-lg mb-4">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-red-300 font-semibold mb-2 text-lg">
-                Cannot Reschedule
+              <p className="text-sm text-purple-400">Current Time</p>
+              <p className="text-2xl font-bold text-purple-200">
+                {currentTime}
               </p>
-              <p className="text-red-200/80">
-                Must be at least 2 hours in advance. Your lesson starts in{" "}
-                {hoursToLesson.toFixed(1)} hours.
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-purple-400">Lesson Length</p>
+              <p className="text-2xl font-bold text-purple-200">
+                {duration} min
               </p>
             </div>
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="p-4 bg-purple-900/30 border border-purple-700/50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-purple-400">Current Time</p>
-                  <p className="text-2xl font-bold text-purple-200">
-                    {currentTime}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-purple-400">Lesson Length</p>
-                  <p className="text-2xl font-bold text-purple-200">
-                    {duration} min
-                  </p>
-                </div>
+        </div>
+
+        {/* Date Picker */}
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={setSelectedDate}
+          disabled={(date) =>
+            date < new Date() || getDay(date) === 0 || getDay(date) === 6
+          }
+        />
+
+        {/* Time Slots */}
+        {selectedDate && (
+          <div className="space-y-2 mt-4">
+            <Label className="text-purple-200 flex items-center gap-2 text-lg">
+              <Clock className="h-5 w-5" />
+              Available Times on {format(selectedDate, "PPP")}
+            </Label>
+            {availableSlots === undefined ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
               </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-4 text-purple-200 flex items-center gap-2 text-lg">
-                <Clock className="h-5 w-5" />
-                Available Times Today
-              </h3>
-
-              {availableSlots === undefined ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-                </div>
-              ) : availableSlots && availableSlots.length > 0 ? (
-                <div className="grid grid-cols-4 gap-3 max-h-96 overflow-y-auto p-2 bg-purple-950/20 rounded-lg border border-purple-800/30">
-                  {availableSlots.map((timeSlot) => (
-                    <Button
-                      key={timeSlot}
-                      variant={
-                        selectedTime === timeSlot ? "default" : "outline"
-                      }
-                      onClick={() => setSelectedTime(timeSlot)}
-                      className={
-                        selectedTime === timeSlot
-                          ? "bg-purple-700 hover:bg-purple-600 text-white border-purple-600"
-                          : "border-purple-700/50 text-purple-300 hover:bg-purple-900/50"
-                      }
-                    >
-                      {timeSlot}
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16 text-purple-400/70 border border-purple-800/30 rounded-lg bg-purple-950/20">
-                  <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-lg">No available slots today</p>
-                </div>
-              )}
-            </div>
-
-            {selectedTime && (
-              <div className="p-5 bg-green-900/20 border border-green-700/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <Clock className="h-5 w-5 text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-green-300 text-sm">New time selected</p>
-                    <p className="text-2xl font-bold text-green-200">
-                      {selectedTime}
-                    </p>
-                  </div>
-                </div>
+            ) : availableSlots.length > 0 ? (
+              <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                {availableSlots.map((timeSlot) => (
+                  <Button
+                    key={timeSlot}
+                    variant={selectedTime === timeSlot ? "default" : "outline"}
+                    onClick={() => setSelectedTime(timeSlot)}
+                  >
+                    {timeSlot}
+                  </Button>
+                ))}
               </div>
+            ) : (
+              <p className="text-muted-foreground">
+                No slots available this day
+              </p>
             )}
           </div>
         )}
 
-        <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setOpen(false);
-              setSelectedTime(undefined);
-            }}
-            className="border-purple-700/50 text-purple-300 hover:bg-purple-900/30"
-          >
+        <DialogFooter className="mt-6">
+          <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
-            disabled={!canReschedule || !selectedTime || isSubmitting}
+            disabled={!selectedTime || isSubmitting}
             onClick={handleSubmit}
-            className="bg-purple-700 hover:bg-purple-600 text-white"
           >
             {isSubmitting ? (
               <>
@@ -754,10 +721,7 @@ export function StudentRescheduleDialog({
                 Rescheduling...
               </>
             ) : (
-              <>
-                <Clock className="mr-2 h-4 w-4" />
-                Confirm Time Change
-              </>
+              "Confirm Reschedule"
             )}
           </Button>
         </DialogFooter>
