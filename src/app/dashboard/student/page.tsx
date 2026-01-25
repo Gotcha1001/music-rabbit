@@ -1063,7 +1063,6 @@ import { toast } from "sonner";
 import { TeacherProfileCard } from "@/app/components/TeacherProfileCard";
 import { CancelLessonDialog } from "@/app/components/CancelLessonDialog";
 import { StudentRescheduleDialog } from "@/app/components/StudentRescheduleDialog";
-import { StudentRequestRescheduleDialog } from "@/app/components/StudentRequestRescheduleDialog";
 
 type LessonRow = {
   scheduleId: Id<"schedules">;
@@ -1583,8 +1582,8 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                       </Link>
                     </Button>
 
-                    {/* Same-day Reschedule Button */}
-                    {l.state === "scheduled" && isSameDay && (
+                    {/* Unified Reschedule Button */}
+                    {l.state === "scheduled" && (
                       <StudentRescheduleDialog
                         scheduleId={l.scheduleId}
                         lessonId={l.lessonId}
@@ -1598,29 +1597,9 @@ function LessonsTable({ lessons, now }: { lessons: LessonRow[]; now: number }) {
                           size="sm"
                           className="border-purple-600/50 text-purple-300 hover:bg-purple-900/30"
                         >
-                          Change Time
+                          Reschedule
                         </Button>
                       </StudentRescheduleDialog>
-                    )}
-
-                    {/* Future-day Request Reschedule Button */}
-                    {l.state === "scheduled" && !isSameDay && (
-                      <StudentRequestRescheduleDialog
-                        scheduleId={l.scheduleId}
-                        lessonId={l.lessonId}
-                        teacherId={l.teacherId}
-                        duration={l.duration}
-                        currentDate={l.date}
-                        currentTime={l.time}
-                      >
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-blue-600/50 text-blue-300 hover:bg-blue-900/30"
-                        >
-                          Request Reschedule
-                        </Button>
-                      </StudentRequestRescheduleDialog>
                     )}
 
                     {/* Cancel Button */}
