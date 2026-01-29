@@ -149,6 +149,7 @@ import {
   Send,
   Sparkles,
   LogOut,
+  Coins,
 } from "lucide-react";
 import {
   Sidebar,
@@ -205,6 +206,11 @@ const menuItems = [
     title: "Monthly Draw",
     href: "/dashboard/admin/draw",
     icon: Sparkles,
+  },
+  {
+    title: "Salaries",
+    href: "/dashboard/admin/salaries",
+    icon: Coins,
   },
 ];
 

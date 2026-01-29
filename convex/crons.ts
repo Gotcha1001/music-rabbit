@@ -30,16 +30,27 @@ crons.interval(
   "check missed lessons",
   { minutes: 5 },
   internal.schedules.checkMissedLessons, // ← Fix: Use schedules, not payments
-  {} // No args needed
+  {}, // No args needed
 );
 
-// For monthly payments (first of month)
-// For monthly payments (first of month, calculate PREVIOUS month)
 crons.monthly(
   "calculate monthly payments",
   { day: 1, hourUTC: 0, minuteUTC: 0 },
   internal.payments.calculateMonthInternal,
-  {} // No arg — compute inside
+  {}, // No arg — compute inside
+);
+
+crons.monthly(
+  "update monthly teacher salaries",
+  { day: 1, hourUTC: 0, minuteUTC: 0 }, // 1st of month at midnight UTC
+  internal.payments.calculateMonthlySalaries,
+);
+
+// Reminder to process pending payments on the 5th of every month
+crons.monthly(
+  "remind pending salary payments",
+  { day: 5, hourUTC: 9, minuteUTC: 0 }, // 5th of month at 9 AM UTC
+  internal.payments.sendPendingPaymentReminders,
 );
 
 export default crons;
