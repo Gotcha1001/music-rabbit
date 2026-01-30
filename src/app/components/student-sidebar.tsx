@@ -16,13 +16,14 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, Package, BarChart3, Music, LogOut } from "lucide-react";
+import { Home, Package, BarChart3, Music, LogOut, Heart } from "lucide-react";
 import { SignOutButton } from "@clerk/nextjs";
 
 const links = [
   { name: "Dashboard", href: "/dashboard/student", icon: Home },
   { name: "My Package", href: "/dashboard/student/packages", icon: Package },
   { name: "My Stats", href: "/dashboard/student/stats", icon: BarChart3 },
+  { name: "My Thank Yous", href: "/dashboard/student/thank-yous", icon: Heart },
 ];
 
 export function StudentSidebar() {
