@@ -55,7 +55,7 @@
 //   const context = useContext(UserDetailContext);
 //   if (!context) {
 //     throw new Error(
-//       "TeacherSidebar must be used within UserDetailContext.Provider"
+//       "TeacherSidebar must be used within UserDetailContext.Provider",
 //     );
 //   }
 //   const { userDetail } = context;
@@ -72,7 +72,7 @@
 //     api.payments.getEarningsSummary,
 //     userDetail?._id && userDetail.role === "teacher"
 //       ? { teacherId: userDetail._id }
-//       : "skip"
+//       : "skip",
 //   );
 
 //   if (!userDetail || userDetail.role !== "teacher") {
@@ -81,7 +81,7 @@
 
 //   return (
 //     <Sidebar collapsible="icon">
-//       <SidebarHeader className="bg-gradient-to-br from-purple-950/80 to-black/80 border-b border-purple-800/50">
+//       <SidebarHeader className="bg-gradient-to-br from-purple-950 to-black border-b border-purple-800/50">
 //         <div className="flex justify-center items-center py-4">
 //           {open ? (
 //             <h1 className="text-xl font-bold text-purple-300">Music Rabbit</h1>
@@ -91,7 +91,7 @@
 //         </div>
 //       </SidebarHeader>
 
-//       <SidebarContent className="bg-gradient-to-br from-purple-950/80 to-black/80">
+//       <SidebarContent className="bg-gradient-to-br from-purple-950 to-black">
 //         <SidebarGroup>
 //           <SidebarGroupLabel className="text-purple-300">
 //             Teacher Portal
@@ -118,7 +118,7 @@
 //         </SidebarGroup>
 //       </SidebarContent>
 
-//       <SidebarFooter className="bg-gradient-to-br from-purple-950/80 to-black/80 border-t border-purple-800/50">
+//       <SidebarFooter className="bg-gradient-to-br from-purple-950 to-black border-t border-purple-800/50">
 //         <div className="p-4 text-center space-y-3">
 //           <div className="flex items-center justify-center gap-2 text-purple-300">
 //             <DollarSign className="h-4 w-4" />
@@ -150,7 +150,6 @@
 //     </Sidebar>
 //   );
 // }
-
 // export default TeacherSidebar;
 "use client";
 
@@ -180,6 +179,7 @@ import {
   User,
   Users,
   Video,
+  Heart, // ← NEW: Import Heart icon for Thanks Messages
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -197,6 +197,8 @@ const MenuOptions = [
     url: "/dashboard/teacher/messages",
     icon: MessageSquare,
   },
+  // ← NEW: Add Thanks Messages item here
+  { title: "Thanks Messages", url: "/dashboard/thanks-messages", icon: Heart },
   { title: "Profile", url: "/dashboard/teacher/profile", icon: User },
 ];
 
@@ -209,7 +211,7 @@ function TeacherSidebar() {
   const context = useContext(UserDetailContext);
   if (!context) {
     throw new Error(
-      "TeacherSidebar must be used within UserDetailContext.Provider"
+      "TeacherSidebar must be used within UserDetailContext.Provider",
     );
   }
   const { userDetail } = context;
@@ -226,7 +228,7 @@ function TeacherSidebar() {
     api.payments.getEarningsSummary,
     userDetail?._id && userDetail.role === "teacher"
       ? { teacherId: userDetail._id }
-      : "skip"
+      : "skip",
   );
 
   if (!userDetail || userDetail.role !== "teacher") {
