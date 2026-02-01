@@ -50,6 +50,8 @@ export default defineSchema({
         completed: v.boolean(),
         notes: v.optional(v.string()),
         startedAt: v.optional(v.number()),
+        markedBy: v.optional(v.id("users")), // Teacher/admin who marked
+        markedAt: v.optional(v.number()), // Timestamp
 
         // ✅ ADD THIS - Timestamp when lesson was scheduled (for date filtering)
         scheduledTime: v.optional(v.number()),
