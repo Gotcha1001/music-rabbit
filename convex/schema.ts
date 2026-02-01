@@ -253,26 +253,35 @@ export default defineSchema({
   }).index("by_student", ["studentId"]),
 
   tutorMemos: defineTable({
-    scheduleId: v.id("schedules"),
-    lessonId: v.string(),
+    scheduleId: v.optional(v.id("schedules")), // Optional now
+    lessonId: v.optional(v.string()), // Optional now
     studentId: v.id("users"),
-    teacherId: v.id("users"),
-    teacherName: v.string(),
-    status: v.union(
-      v.literal("OK"), // Lesson completed successfully (Full Pay)
-      v.literal("ET"), // Ended Early (Full Pay)
-      v.literal("NA"), // No Answer (Full Pay)
-      v.literal("TI"), // Technical Issues (No Pay)
-      v.literal("TL"), // Teacher was late (Full Pay - $5)
+    teacherId: v.optional(v.id("users")), // Optional now
+    teacherName: v.optional(v.string()), // Optional now
+    status: v.optional(
+      // Optional now
+      v.union(
+        v.literal("OK"), // Lesson completed successfully (Full Pay)
+        v.literal("ET"), // Ended Early (Full Pay)
+        v.literal("NA"), // No Answer (Full Pay)
+        v.literal("TI"), // Technical Issues (No Pay)
+        v.literal("TL"), // Teacher was late (Full Pay - $5)
+      ),
     ),
     bookUsed: v.optional(v.string()),
     pageProgress: v.optional(v.string()),
     reason: v.optional(v.string()),
     createdAt: v.number(),
+    // NEW FIELDS for general info
+    type: v.optional(v.union(v.literal("lesson"), v.literal("general"))), // To distinguish entry types
+    content: v.optional(v.string()), // Free-text for general notes
+    updatedBy: v.optional(v.id("users")),
+    updatedAt: v.optional(v.number()),
   })
     .index("by_student", ["studentId"])
     .index("by_teacher", ["teacherId"])
-    .index("by_schedule_lesson", ["scheduleId", "lessonId"]),
+    .index("by_schedule_lesson", ["scheduleId", "lessonId"])
+    .index("by_type", ["type"]),
 
   lessonCancellations: defineTable({
     scheduleId: v.id("schedules"),
@@ -350,4 +359,11 @@ export default defineSchema({
   })
     .index("by_teacher", ["teacherId"])
     .index("by_teacher_day", ["teacherId", "dayOfWeek"]),
+
+  studentInfos: defineTable({
+    studentId: v.id("users"),
+    content: v.string(),
+    updatedBy: v.optional(v.id("users")), // Teacher who last updated
+    updatedAt: v.optional(v.number()), // Timestamp
+  }).index("by_student", ["studentId"]),
 });
