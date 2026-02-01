@@ -26,6 +26,7 @@ import type * as storage from "../storage.js";
 import type * as studentPackages from "../studentPackages.js";
 import type * as thankYouMessages from "../thankYouMessages.js";
 import type * as tutorMemos from "../tutorMemos.js";
+import type * as tutorsMemos from "../tutorsMemos.js";
 import type * as users from "../users.js";
 
 import type {
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   studentPackages: typeof studentPackages;
   thankYouMessages: typeof thankYouMessages;
   tutorMemos: typeof tutorMemos;
+  tutorsMemos: typeof tutorsMemos;
   users: typeof users;
 }>;
 
