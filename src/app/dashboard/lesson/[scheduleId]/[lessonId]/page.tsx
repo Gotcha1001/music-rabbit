@@ -38,6 +38,7 @@
 // import { CancelLessonDialog } from "@/app/components/CancelLessonDialog"; // ← NEW: Import CancelLessonDialog
 // import { RescheduleDialog } from "@/app/components/RescheduleDialog"; // ← NEW: Import RescheduleDialog
 // import { Star } from "lucide-react";
+// import { ThankYouButton } from "@/app/components/ThankYouButton"; // ← NEW: Import ThankYouButton
 
 // type NewLessonStatus =
 //   | "completed"
@@ -635,7 +636,9 @@
 //               </div>
 //             )}
 //             {isStudent && lesson.state === "completed" && (
-//               <div className="space-y-3 pt-4 border-t border-purple-800/30">
+//               <div className="space-y-6 pt-4 border-t border-purple-800/30">
+//                 {" "}
+//                 {/* ← UPDATED: Increased space-y for better separation */}
 //                 <Label className="text-white">
 //                   Rate This Lesson (Optional)
 //                 </Label>
@@ -655,6 +658,14 @@
 //                     You rated this {existingRating.rating} stars. Thanks!
 //                   </p>
 //                 )}
+//                 {/* ← NEW: Add thank you button here, after rating */}
+//                 <ThankYouButton
+//                   scheduleId={scheduleId}
+//                   lessonId={lessonId}
+//                   teacherId={lesson.teacherId}
+//                   teacherName={teacher.name || teacher.email.split("@")[0]}
+//                   lessonCompleted={lesson.state === "completed"}
+//                 />
 //               </div>
 //             )}
 
@@ -829,6 +840,17 @@ export default function LessonDetail() {
     EndLessonStatus | undefined
   >(undefined);
 
+  // NEW: Student info states
+  const studentInfo = useQuery(
+    api.tutorsMemos.getGeneralInfoForStudent,
+    lesson?.studentId ? { studentId: lesson.studentId } : "skip",
+  );
+  const updateGeneralInfo = useMutation(
+    api.tutorsMemos.updateGeneralInfoForStudent,
+  );
+  const [studentContent, setStudentContent] = useState("");
+  const [studentInfoSaving, setStudentInfoSaving] = useState(false);
+
   const isTeacher = user?.unsafeMetadata?.role === "teacher";
   const isStudent = user?.unsafeMetadata?.role === "student";
   const zoomLink = teacher?.zoomLink || lesson?.zoomLink;
@@ -850,6 +872,10 @@ export default function LessonDetail() {
   useEffect(() => {
     if (lesson?.notes) setNotes(lesson.notes || "");
   }, [lesson?.notes]);
+
+  useEffect(() => {
+    setStudentContent(studentInfo?.content || "");
+  }, [studentInfo]);
 
   if (!lesson || !teacher || !student) {
     return (
@@ -979,6 +1005,23 @@ export default function LessonDetail() {
     }
   };
 
+  // NEW: Save student info
+  const handleSaveStudentInfo = async () => {
+    if (!isTeacher || studentContent === (studentInfo?.content || "")) return;
+    setStudentInfoSaving(true);
+    try {
+      await updateGeneralInfo({
+        studentId: lesson.studentId,
+        content: studentContent,
+      });
+      toast.success("Student information saved!");
+    } catch {
+      toast.error("Failed to save student information");
+    } finally {
+      setStudentInfoSaving(false);
+    }
+  };
+
   const getInitials = (name?: string, email?: string) =>
     name
       ? name
@@ -1083,6 +1126,41 @@ export default function LessonDetail() {
                   {student.instrument && `Learning ${student.instrument}`}
                 </p>
               </div>
+            </div>
+
+            {/* NEW: Student Information Section */}
+            <div className="space-y-3 pt-4 border-t border-purple-800/30">
+              <Label className="text-white">
+                Student Information (By Teachers)
+              </Label>
+              {isTeacher ? (
+                <>
+                  <Textarea
+                    value={studentContent}
+                    onChange={(e) => setStudentContent(e.target.value)}
+                    rows={5}
+                    className="bg-purple-900/20 border-purple-700 text-purple-200"
+                    placeholder="Write some basic knowledge of the student, e.g., preferred name, what they're interested in and any family background, etc. This is visible to all teachers."
+                  />
+                  <Button
+                    onClick={handleSaveStudentInfo}
+                    disabled={
+                      studentInfoSaving ||
+                      studentContent === (studentInfo?.content || "")
+                    }
+                  >
+                    {studentInfoSaving ? "Saving..." : "Save Student Info"}
+                  </Button>
+                </>
+              ) : (
+                studentInfo?.content && (
+                  <div className="mt-2 p-4 bg-purple-900/30 rounded-lg border border-purple-700">
+                    <p className="whitespace-pre-wrap text-purple-200">
+                      {studentInfo.content}
+                    </p>
+                  </div>
+                )
+              )}
             </div>
 
             {/* Lesson Info */}
