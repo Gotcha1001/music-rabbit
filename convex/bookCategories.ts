@@ -30,6 +30,12 @@ export const getAllForAdmin = query({
     return await ctx.db.query("bookCategories").collect();
   },
 });
+// Add this near the other queries
+export const getAll = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("bookCategories").collect();
+  },
+});
 
 // 2. Get categories + book count (for badges)
 export const getCategoriesWithBookCounts = query({
@@ -100,7 +106,7 @@ export const update = mutation({
 
     // Clean undefined
     Object.keys(patch).forEach(
-      (key) => patch[key] === undefined && delete patch[key]
+      (key) => patch[key] === undefined && delete patch[key],
     );
 
     await ctx.db.patch(categoryId, patch);
@@ -125,7 +131,7 @@ export const reorder = mutation({
     await requireAdmin(ctx);
 
     const promises = orderedIds.map((id, index) =>
-      ctx.db.patch(id, { sortOrder: index })
+      ctx.db.patch(id, { sortOrder: index }),
     );
 
     await Promise.all(promises);

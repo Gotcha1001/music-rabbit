@@ -42,7 +42,7 @@ export const upload = mutation({
       const maxLevel = category.maxLevel || 10;
       if (args.levelNumber < 1 || args.levelNumber > maxLevel) {
         throw new Error(
-          `Level must be between 1 and ${maxLevel} for this category`
+          `Level must be between 1 and ${maxLevel} for this category`,
         );
       }
     }
@@ -134,5 +134,90 @@ export const getByCategory = query({
         book.subcategory?.toLowerCase().includes(lowerSearch)
       );
     });
+  },
+});
+
+// export const getAllActive = query({
+//   handler: async (ctx) => {
+//     return await ctx.db
+//       .query("books")
+//       .filter(
+//         (q) =>
+//           q.eq(q.field("isPublic"), true) ||
+//           q.eq(q.field("isPublic"), undefined),
+//       )
+//       .collect();
+//   },
+// });
+
+export const getAllActive = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("books").collect(); // ← remove filter for now
+  },
+});
+
+// Search books (using search index if you add it)
+export const searchBooks = query({
+  args: {
+    search: v.optional(v.string()),
+    instrument: v.optional(v.string()),
+    categoryId: v.optional(v.id("bookCategories")),
+  },
+  handler: async (ctx, { search, instrument, categoryId }) => {
+    let books;
+
+    // Use the most specific index available
+    if (instrument) {
+      books = await ctx.db
+        .query("books")
+        .withIndex("by_instrument", (q) => q.eq("instrument", instrument))
+        .collect();
+    } else if (categoryId) {
+      books = await ctx.db
+        .query("books")
+        .withIndex("by_category", (q) => q.eq("categoryId", categoryId))
+        .collect();
+    } else {
+      books = await ctx.db.query("books").collect();
+    }
+
+    // Filter by the other parameters that weren't used in the index
+    if (categoryId && instrument) {
+      books = books.filter((b) => b.categoryId === categoryId);
+    }
+
+    if (!search) return books;
+
+    const lower = search.toLowerCase();
+    return books.filter(
+      (b) =>
+        b.title.toLowerCase().includes(lower) ||
+        b.description?.toLowerCase().includes(lower) ||
+        b.subcategory?.toLowerCase().includes(lower) ||
+        b.tags?.some((t) => t.toLowerCase().includes(lower)),
+    );
+  },
+});
+
+// If you add the search index:
+export const fullTextSearch = query({
+  args: {
+    query: v.string(),
+    instrument: v.optional(v.string()),
+    categoryId: v.optional(v.id("bookCategories")),
+  },
+  handler: async (ctx, args) => {
+    let q = ctx.db
+      .query("books")
+      .withSearchIndex("search_books", (q) => q.search("title", args.query));
+
+    if (args.instrument) {
+      q = q.filter((q) => q.eq(q.field("instrument"), args.instrument));
+    }
+    if (args.categoryId) {
+      q = q.filter((q) => q.eq(q.field("categoryId"), args.categoryId));
+    }
+
+    return await q.collect();
   },
 });

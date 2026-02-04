@@ -104,23 +104,39 @@ export default defineSchema({
     title: v.string(),
     instrument: v.string(),
     categoryId: v.id("bookCategories"),
-    levelNumber: v.optional(v.number()),
-    difficulty: v.optional(v.number()),
-    subcategory: v.optional(v.string()),
+
+    // Recommended: make these more consistent / useful
+    levelNumber: v.optional(v.number()), // already good
+    levelName: v.optional(v.string()), // ← NEW: e.g. "Beginner Grade 1", "Intermediate Book A"
+    difficulty: v.optional(v.number()), // 1–10 scale, optional
+
+    subcategory: v.optional(v.string()), // already good
+    description: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+
     driveFileId: v.string(),
     driveViewLink: v.string(),
     driveDownloadLink: v.optional(v.string()),
-    description: v.optional(v.string()),
-    tags: v.optional(v.array(v.string())),
+
     uploadedBy: v.optional(v.id("users")),
     uploadedAt: v.number(),
     timesUsed: v.optional(v.number()),
     lastUsed: v.optional(v.number()),
+
+    // Optional but very useful for future features:
+    isPublic: v.optional(v.boolean()), // ← NEW: default true, can hide books
+    coverImageUrl: v.optional(v.string()), // ← NEW: if you later add book covers
   })
     .index("by_instrument", ["instrument"])
     .index("by_category", ["categoryId"])
     .index("by_instrument_category", ["instrument", "categoryId"])
-    .index("by_category_level", ["categoryId", "levelNumber"]),
+    .index("by_category_level", ["categoryId", "levelNumber"])
+    // Recommended new indexes for better filtering & search performance
+    .index("by_title", ["title"]) // helps with title prefix search if needed
+    .searchIndex("search_books", {
+      searchField: "title", // ← only one field
+      filterFields: ["categoryId", "instrument", "levelNumber"],
+    }),
 
   messages: defineTable({
     fromId: v.id("users"),
