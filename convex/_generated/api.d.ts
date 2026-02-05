@@ -13,6 +13,7 @@ import type * as availability from "../availability.js";
 import type * as bookCategories from "../bookCategories.js";
 import type * as books from "../books.js";
 import type * as crons from "../crons.js";
+import type * as dailyPiece from "../dailyPiece.js";
 import type * as globalMessages from "../globalMessages.js";
 import type * as inviteCodes from "../inviteCodes.js";
 import type * as lessonManagement from "../lessonManagement.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   bookCategories: typeof bookCategories;
   books: typeof books;
   crons: typeof crons;
+  dailyPiece: typeof dailyPiece;
   globalMessages: typeof globalMessages;
   inviteCodes: typeof inviteCodes;
   lessonManagement: typeof lessonManagement;

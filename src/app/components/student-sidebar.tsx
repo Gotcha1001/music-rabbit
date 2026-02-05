@@ -24,6 +24,7 @@ import {
   LogOut,
   Heart,
   BookOpen,
+  Music2,
 } from "lucide-react";
 import { SignOutButton } from "@clerk/nextjs";
 
@@ -31,12 +32,17 @@ const links = [
   { name: "Dashboard", href: "/dashboard/student", icon: Home },
   { name: "My Package", href: "/dashboard/student/packages", icon: Package },
   {
-    title: "Books",
+    name: "Books",
     href: "/dashboard/student/books",
     icon: BookOpen,
   },
   { name: "My Stats", href: "/dashboard/student/stats", icon: BarChart3 },
   { name: "My Thank Yous", href: "/dashboard/student/thank-yous", icon: Heart },
+  {
+    name: "Daily Music Piece",
+    href: "/dashboard/student/daily-piece",
+    icon: Music2,
+  },
 ];
 
 export function StudentSidebar() {

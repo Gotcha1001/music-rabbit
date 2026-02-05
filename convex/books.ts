@@ -115,28 +115,33 @@ export const remove = mutation({
 export const getByCategory = query({
   args: {
     categoryId: v.id("bookCategories"),
-    // Remove instrument filtering completely — we want ALL books in the category
     search: v.optional(v.string()),
   },
   handler: async (ctx, { categoryId, search }) => {
+    // Fetch books sorted by newest first (using the composite index)
     const books = await ctx.db
       .query("books")
-      .withIndex("by_category", (q) => q.eq("categoryId", categoryId))
+      .withIndex("by_category_uploadedAt", (q) =>
+        q.eq("categoryId", categoryId),
+      )
+      .order("desc") // newest uploaded first
       .collect();
 
     if (!search) return books;
 
-    const lowerSearch = search.toLowerCase();
+    const lowerSearch = search.toLowerCase().trim();
+
     return books.filter((book) => {
       return (
         book.title.toLowerCase().includes(lowerSearch) ||
+        (book.description ?? "").toLowerCase().includes(lowerSearch) ||
+        (book.subcategory ?? "").toLowerCase().includes(lowerSearch) ||
         (book.levelNumber?.toString() ?? "").includes(lowerSearch) ||
-        book.subcategory?.toLowerCase().includes(lowerSearch)
+        (book.tags ?? []).some((tag) => tag.toLowerCase().includes(lowerSearch))
       );
     });
   },
 });
-
 // export const getAllActive = query({
 //   handler: async (ctx) => {
 //     return await ctx.db
