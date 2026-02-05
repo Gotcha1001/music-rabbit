@@ -179,7 +179,8 @@ import {
   User,
   Users,
   Video,
-  Heart, // ← NEW: Import Heart icon for Thanks Messages
+  Heart,
+  Music2, // ← NEW: Import Heart icon for Thanks Messages
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -200,6 +201,11 @@ const MenuOptions = [
   // ← NEW: Add Thanks Messages item here
   { title: "Thanks Messages", url: "/dashboard/thanks-messages", icon: Heart },
   { title: "Profile", url: "/dashboard/teacher/profile", icon: User },
+  {
+    title: "Daily Music Piece",
+    url: "/dashboard/teacher/daily-piece",
+    icon: Music2,
+  },
 ];
 
 function TeacherSidebar() {

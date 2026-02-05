@@ -86,9 +86,9 @@ export default defineSchema({
   bookCategories: defineTable({
     name: v.string(),
     slug: v.string(),
-    description: v.string(),
-    icon: v.string(),
-    color: v.string(),
+    description: v.optional(v.string()), // ← make optional (not always needed)
+    icon: v.optional(v.string()), // ← optional is fine
+    color: v.optional(v.string()), // ← optional
     hasLevels: v.boolean(),
     maxLevel: v.optional(v.number()),
     isActive: v.boolean(),
@@ -96,6 +96,7 @@ export default defineSchema({
     createdAt: v.number(),
     createdBy: v.id("users"),
   })
+    .index("by_name", ["name"]) // ← NEW: very useful for "Daily piece"
     .index("by_slug", ["slug"])
     .index("by_active", ["isActive"])
     .index("by_sort_order", ["sortOrder"]),
@@ -105,12 +106,11 @@ export default defineSchema({
     instrument: v.string(),
     categoryId: v.id("bookCategories"),
 
-    // Recommended: make these more consistent / useful
-    levelNumber: v.optional(v.number()), // already good
-    levelName: v.optional(v.string()), // ← NEW: e.g. "Beginner Grade 1", "Intermediate Book A"
-    difficulty: v.optional(v.number()), // 1–10 scale, optional
+    levelNumber: v.optional(v.number()),
+    levelName: v.optional(v.string()),
+    difficulty: v.optional(v.number()),
 
-    subcategory: v.optional(v.string()), // already good
+    subcategory: v.optional(v.string()),
     description: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
 
@@ -123,19 +123,28 @@ export default defineSchema({
     timesUsed: v.optional(v.number()),
     lastUsed: v.optional(v.number()),
 
-    // Optional but very useful for future features:
-    isPublic: v.optional(v.boolean()), // ← NEW: default true, can hide books
-    coverImageUrl: v.optional(v.string()), // ← NEW: if you later add book covers
+    isPublic: v.optional(v.boolean()), // default true later in code
+    coverImageUrl: v.optional(v.string()),
+
+    // NEW — helpful for daily piece & future features
+    isFeatured: v.optional(v.boolean()), // can mark special daily pieces
+    featuredUntil: v.optional(v.number()), // timestamp — auto-unfeature after day?
   })
     .index("by_instrument", ["instrument"])
     .index("by_category", ["categoryId"])
     .index("by_instrument_category", ["instrument", "categoryId"])
     .index("by_category_level", ["categoryId", "levelNumber"])
-    // Recommended new indexes for better filtering & search performance
-    .index("by_title", ["title"]) // helps with title prefix search if needed
+
+    // Very useful for Daily Piece (show newest first)
+    .index("by_category_uploadedAt", ["categoryId", "uploadedAt"]) // ← composite index
+
+    // For title-based lookup / search
+    .index("by_title", ["title"])
+
+    // Full-text search (already good, but can be improved)
     .searchIndex("search_books", {
-      searchField: "title", // ← only one field
-      filterFields: ["categoryId", "instrument", "levelNumber"],
+      searchField: "title",
+      filterFields: ["categoryId", "instrument", "levelNumber", "isPublic"],
     }),
 
   messages: defineTable({
