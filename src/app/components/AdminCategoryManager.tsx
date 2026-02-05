@@ -149,13 +149,12 @@ export function AdminCategoryManager() {
     setEditingId(null);
     resetForm();
   };
-
   const openEdit = (cat: (typeof categories)[0]) => {
     setForm({
       name: cat.name,
-      description: cat.description,
-      icon: cat.icon,
-      color: cat.color,
+      description: cat.description ?? "", // ← fallback to ""
+      icon: cat.icon ?? "MusicalNote", // optional: fallback
+      color: cat.color ?? "#3b82f6",
       hasLevels: cat.hasLevels,
       maxLevel: cat.maxLevel ?? 10,
     });
