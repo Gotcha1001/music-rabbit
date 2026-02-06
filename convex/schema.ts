@@ -45,7 +45,7 @@ export default defineSchema({
         studentId: v.id("users"),
         time: v.string(), // HH:MM
         duration: v.number(), // Minutes
-        date: v.number(),
+        date: v.optional(v.number()),
         bookId: v.union(v.id("books"), v.null()),
         zoomLink: v.optional(v.string()),
         completed: v.boolean(),
