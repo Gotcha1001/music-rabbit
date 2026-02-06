@@ -25,6 +25,7 @@ import {
   Heart,
   BookOpen,
   Music2,
+  ClipboardList,
 } from "lucide-react";
 import { SignOutButton } from "@clerk/nextjs";
 
@@ -42,6 +43,11 @@ const links = [
     name: "Daily Music Piece",
     href: "/dashboard/student/daily-piece",
     icon: Music2,
+  },
+  {
+    name: "Evaluations",
+    href: "/dashboard/student/evaluations",
+    icon: ClipboardList,
   },
 ];
 

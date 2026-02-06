@@ -45,6 +45,7 @@ export default defineSchema({
         studentId: v.id("users"),
         time: v.string(), // HH:MM
         duration: v.number(), // Minutes
+        date: v.number(),
         bookId: v.union(v.id("books"), v.null()),
         zoomLink: v.optional(v.string()),
         completed: v.boolean(),
@@ -391,4 +392,29 @@ export default defineSchema({
     updatedBy: v.optional(v.id("users")), // Teacher who last updated
     updatedAt: v.optional(v.number()), // Timestamp
   }).index("by_student", ["studentId"]),
+
+  evaluations: defineTable({
+    studentId: v.id("users"),
+    teacherId: v.id("users"),
+    month: v.number(), // Month number (0-11)
+    year: v.number(),
+    createdAt: v.number(),
+
+    // Evaluation criteria (using scale: weak, ok, better, good, excellent, perfection)
+    scales: v.string(), // weak | ok | better | good | excellent | perfection
+    chords: v.string(),
+    sightReading: v.string(),
+    rhythm: v.string(),
+    improvisation: v.string(),
+
+    // Monthly pieces worked on
+    piecesWorkedOn: v.array(v.string()),
+
+    // Optional additional notes
+    notes: v.optional(v.string()),
+  })
+    .index("by_student", ["studentId"])
+    .index("by_teacher", ["teacherId"])
+    .index("by_student_date", ["studentId", "year", "month"])
+    .index("by_teacher_date", ["teacherId", "year", "month"]),
 });
