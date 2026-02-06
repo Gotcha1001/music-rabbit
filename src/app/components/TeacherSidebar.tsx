@@ -180,7 +180,8 @@ import {
   Users,
   Video,
   Heart,
-  Music2, // ← NEW: Import Heart icon for Thanks Messages
+  Music2,
+  ClipboardList, // ← NEW: Import Heart icon for Thanks Messages
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -205,6 +206,11 @@ const MenuOptions = [
     title: "Daily Music Piece",
     url: "/dashboard/teacher/daily-piece",
     icon: Music2,
+  },
+  {
+    title: "Evaluations",
+    url: "/dashboard/teacher/evaluations",
+    icon: ClipboardList,
   },
 ];
 
