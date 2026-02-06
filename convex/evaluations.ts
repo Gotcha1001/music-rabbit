@@ -33,7 +33,6 @@ export const getStudentsNeedingEvaluation = query({
       const completed = schedule.lessons.filter(
         (lesson) => lesson.status === "completed",
       );
-
       for (const lesson of completed) {
         const studentId = lesson.studentId;
 
@@ -49,7 +48,11 @@ export const getStudentsNeedingEvaluation = query({
 
         entry.lessons.push(lesson);
         entry.totalCompleted += 1;
-        entry.firstDate = Math.min(entry.firstDate, lesson.date);
+
+        // FIXED: only update if date exists
+        if (lesson.date !== undefined) {
+          entry.firstDate = Math.min(entry.firstDate, lesson.date);
+        }
       }
     }
 
