@@ -400,6 +400,13 @@ type EvaluationData = {
   hasEvaluations: boolean;
 };
 
+/**
+ * Selects an icon representing the trend between two evaluation scale values.
+ *
+ * @param current - The current evaluation scale key (one of the defined EvaluationScale values).
+ * @param previous - The previous evaluation scale key, or `undefined` if not available.
+ * @returns A JSX icon: `TrendingUp` (green) if `current` is greater than `previous`, `TrendingDown` (red) if `current` is less than `previous`, or `Minus` (gray) if they are equal or `previous` is not provided.
+ */
 function getTrendIcon(current: string, previous: string | undefined) {
   if (!previous) return <Minus className="h-4 w-4" />;
 
@@ -415,6 +422,11 @@ function getTrendIcon(current: string, previous: string | undefined) {
   return <Minus className="h-4 w-4 text-gray-400" />;
 }
 
+/**
+ * Generate and download a PDF summarizing a single student evaluation.
+ *
+ * @param evaluation - The evaluation record (including month, year, createdAt, teacher, criteria values, pieces worked on, and optional teacher notes) used to populate the PDF
+ */
 function downloadEvaluationPDF(evaluation: EvaluationWithTeacher) {
   const pdf = new jsPDF();
 
@@ -511,6 +523,13 @@ function downloadEvaluationPDF(evaluation: EvaluationWithTeacher) {
   pdf.save(filename);
 }
 
+/**
+ * Render the student evaluations page, displaying loading and error states, an encouragement alert when evaluations are pending, and a list of monthly evaluations with trend indicators and per-evaluation PDF export.
+ *
+ * The page fetches the current user and their evaluations, shows placeholders while loading, an error card if the user record is missing, a guidance card when no evaluations exist, and for each evaluation renders criteria badges, trend icons, pieces worked on, optional teacher notes, and a button to download the evaluation as a PDF.
+ *
+ * @returns The React element for the Student Evaluations page.
+ */
 export default function StudentEvaluationsPage() {
   const { user } = useUser();
 

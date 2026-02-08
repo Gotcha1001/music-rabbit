@@ -192,6 +192,13 @@ const links = [
   },
 ];
 
+/**
+ * Renders the student portal sidebar with header, navigation menu, and sign-out footer.
+ *
+ * The menu highlights the active internal route, opens external links in a new tab with an external indicator, and shows a tooltip for the external Self-Testing Game link.
+ *
+ * @returns The sidebar JSX element containing the header (brand), navigation items, and footer with the current user's first name and a sign-out button.
+ */
 export function StudentSidebar() {
   const pathname = usePathname();
   const { user } = useUser();

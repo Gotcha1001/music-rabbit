@@ -378,6 +378,14 @@ import Link from "next/link";
 import { Music } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 
+/**
+ * Client-side page component that renders separate UI regions for loading, authenticated, and unauthenticated states.
+ *
+ * The component displays a full-screen loading indicator while auth status is resolving, renders AuthenticatedContent
+ * when a user is signed in, and shows the landing UI for guests when not signed in.
+ *
+ * @returns The component's JSX element containing AuthLoading, Authenticated, and Unauthenticated regions
+ */
 export default function Home() {
   return (
     <>
@@ -401,6 +409,14 @@ export default function Home() {
   );
 }
 
+/**
+ * Render the landing page UI shown to users who are not signed in.
+ *
+ * The component is purely presentational: it displays the hero, role selection/join controls,
+ * feature cards, and decorative animated backgrounds and particles for the unauthenticated experience.
+ *
+ * @returns The React element rendering the unauthenticated landing page.
+ */
 function UnauthenticatedContent() {
   // ────────────────────────────────────────────────
   // Your existing beautiful landing page for non-logged-in users
@@ -533,6 +549,18 @@ function UnauthenticatedContent() {
   );
 }
 
+/**
+ * Redirects an authenticated user to the appropriate app area based on their role and renders a transient loading/redirect UI.
+ *
+ * When user data is still syncing, shows a full-screen "Syncing your account..." state. Once user data is available the component:
+ * - navigates to `/onboarding` if the user record is `null`,
+ * - navigates to `/welcome/teacher` for role `"teacher"`,
+ * - navigates to `/welcome/student` for role `"student"`,
+ * - navigates to `/dashboard/admin` for role `"admin"`,
+ * - navigates to `/` for any other or unknown role.
+ *
+ * @returns The JSX element displayed while the component is syncing user data or performing the redirect.
+ */
 function AuthenticatedContent() {
   const router = useRouter();
   const convexUser = useQuery(api.users.get);

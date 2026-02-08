@@ -24,6 +24,13 @@ const weeklyTips = [
   },
 ];
 
+/**
+ * Render the teacher welcome/dashboard landing UI with weekly tips and a primary action to open the teacher schedule.
+ *
+ * The component displays an animated header, a card listing this week's teaching tips, and a prominent button that navigates to the teacher dashboard.
+ *
+ * @returns The React element for the teacher welcome page.
+ */
 export default function TeacherWelcome() {
   const router = useRouter();
 
