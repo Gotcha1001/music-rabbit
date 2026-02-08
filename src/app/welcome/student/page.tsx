@@ -25,6 +25,14 @@ const studentQuotes = [
   },
 ];
 
+/**
+ * Render the student welcome hub with a hero header, animated testimonials, and a CTA to the student dashboard.
+ *
+ * The component displays a decorative music icon and welcome text, a card with student quotes shown in a responsive,
+ * animated grid, and a button that navigates the user to "/dashboard/student".
+ *
+ * @returns A JSX element representing the student welcome page UI.
+ */
 export default function StudentWelcome() {
   const router = useRouter();
 

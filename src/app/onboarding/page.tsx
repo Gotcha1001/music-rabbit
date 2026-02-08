@@ -18,6 +18,16 @@ import { Label } from "@/components/ui/label";
 import { Loader2, GraduationCap, Music } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 
+/**
+ * Render the onboarding interface and handle initial user setup and role-based navigation.
+ *
+ * Presents a first-user admin setup flow or a choice between student and teacher onboarding,
+ * manages invite-code entry for teachers, creates/fetches the application user record,
+ * updates Clerk user metadata with the selected role, and redirects users to the appropriate
+ * onboarding pages or dashboards.
+ *
+ * @returns The `JSX.Element` for the onboarding page, including dialogs, buttons, and loading/error states.
+ */
 export default function Onboarding() {
   const { user } = useUser();
   const router = useRouter();
