@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  users: defineTable({
+users: defineTable({
     clerkId: v.string(),
     role: v.union(
       v.literal("admin"),
@@ -24,9 +24,14 @@ export default defineSchema({
     institution: v.optional(v.string()),
     bio: v.optional(v.string()),
     specialties: v.optional(v.array(v.string())),
+    hourlyRate: v.optional(v.number()),
 
-    // ✅ ADD THIS - Teacher hourly rate
-    hourlyRate: v.optional(v.number()), // ZAR per hour, defaults to 300 in code
+    // ────────────────────────────────────────────────
+    // NEW FIELDS FOR PHONE / WHATSAPP CONTACT
+    countryCode: v.optional(v.string()),     // e.g. "+27", "+1", "+44"
+    phoneNumber:  v.optional(v.string()),    // e.g. "821234567", "5551234567"
+    // ────────────────────────────────────────────────
+
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_token", ["tokenIdentifier"])
