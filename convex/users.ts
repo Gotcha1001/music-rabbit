@@ -366,3 +366,55 @@ export const autoAssignTeacher = mutation({
     }
   },
 });
+
+// ────────────────────────────────────────────────
+// NEW: Allow users to set their WhatsApp / contact phone number
+// ────────────────────────────────────────────────
+export const setContactInfo = mutation({
+  args: {
+    countryCode: v.optional(v.string()),
+    phoneNumber: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) throw new Error("User not found");
+
+    // Basic validation
+    if (args.countryCode !== undefined) {
+      if (args.countryCode && !args.countryCode.startsWith("+")) {
+        throw new Error("Country code must start with '+' (e.g. +27)");
+      }
+      if (args.countryCode === "") {
+        // Allow clearing the field
+        args.countryCode = undefined;
+      }
+    }
+
+    if (args.phoneNumber !== undefined) {
+      const cleaned = args.phoneNumber.replace(/\D/g, ""); // remove non-digits
+      if (cleaned && (cleaned.length < 7 || cleaned.length > 15)) {
+        throw new Error("Phone number should be 7–15 digits");
+      }
+      args.phoneNumber = cleaned || undefined; // store clean digits only
+    }
+
+    // Only patch if something actually changed
+    const updates: Partial<typeof args> = {};
+    if (args.countryCode !== undefined) updates.countryCode = args.countryCode;
+    if (args.phoneNumber !== undefined) updates.phoneNumber = args.phoneNumber;
+
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(user._id, updates);
+    }
+
+    // Return updated user
+    return await ctx.db.get(user._id);
+  },
+});
