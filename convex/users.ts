@@ -370,6 +370,9 @@ export const autoAssignTeacher = mutation({
 // ────────────────────────────────────────────────
 // NEW: Allow users to set their WhatsApp / contact phone number
 // ────────────────────────────────────────────────
+// ────────────────────────────────────────────────
+// Allow users to set or CLEAR their WhatsApp / contact phone number
+// ────────────────────────────────────────────────
 export const setContactInfo = mutation({
   args: {
     countryCode: v.optional(v.string()),
@@ -386,35 +389,49 @@ export const setContactInfo = mutation({
 
     if (!user) throw new Error("User not found");
 
-    // Basic validation
-    if (args.countryCode !== undefined) {
-      if (args.countryCode && !args.countryCode.startsWith("+")) {
+    // Track whether each field was explicitly provided in the request
+    const hasCountryCode = "countryCode" in args;
+    const hasPhoneNumber = "phoneNumber" in args;
+
+    // Normalize / validate countryCode
+    let countryCode = args.countryCode;
+    if (hasCountryCode) {
+      if (countryCode && !countryCode.startsWith("+")) {
         throw new Error("Country code must start with '+' (e.g. +27)");
       }
-      if (args.countryCode === "") {
-        // Allow clearing the field
-        args.countryCode = undefined;
+      // Empty string explicitly means "clear this field"
+      if (countryCode === "") {
+        countryCode = undefined;
       }
     }
 
-    if (args.phoneNumber !== undefined) {
-      const cleaned = args.phoneNumber.replace(/\D/g, ""); // remove non-digits
+    // Normalize / validate phoneNumber
+    let phoneNumber = args.phoneNumber;
+    if (hasPhoneNumber) {
+      const cleaned = (phoneNumber ?? "").replace(/\D/g, "");
       if (cleaned && (cleaned.length < 7 || cleaned.length > 15)) {
         throw new Error("Phone number should be 7–15 digits");
       }
-      args.phoneNumber = cleaned || undefined; // store clean digits only
+      phoneNumber = cleaned || undefined;
     }
 
-    // Only patch if something actually changed
-    const updates: Partial<typeof args> = {};
-    if (args.countryCode !== undefined) updates.countryCode = args.countryCode;
-    if (args.phoneNumber !== undefined) updates.phoneNumber = args.phoneNumber;
+    // Build the updates object
+    // We include the field even if we're clearing it (setting to undefined)
+    const updates: Record<string, string | undefined> = {};
 
+    if (hasCountryCode) {
+      updates.countryCode = countryCode;
+    }
+    if (hasPhoneNumber) {
+      updates.phoneNumber = phoneNumber;
+    }
+
+    // Only patch if there is actually something to change
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(user._id, updates);
     }
 
-    // Return updated user
+    // Return the updated user document
     return await ctx.db.get(user._id);
   },
 });
