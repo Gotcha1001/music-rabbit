@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-users: defineTable({
+  users: defineTable({
     clerkId: v.string(),
     role: v.union(
       v.literal("admin"),
@@ -28,10 +28,9 @@ users: defineTable({
 
     // ────────────────────────────────────────────────
     // NEW FIELDS FOR PHONE / WHATSAPP CONTACT
-    countryCode: v.optional(v.string()),     // e.g. "+27", "+1", "+44"
-    phoneNumber:  v.optional(v.string()),    // e.g. "821234567", "5551234567"
+    countryCode: v.optional(v.string()), // e.g. "+27", "+1", "+44"
+    phoneNumber: v.optional(v.string()), // e.g. "821234567", "5551234567"
     // ────────────────────────────────────────────────
-
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_token", ["tokenIdentifier"])
@@ -422,4 +421,14 @@ users: defineTable({
     .index("by_teacher", ["teacherId"])
     .index("by_student_date", ["studentId", "year", "month"])
     .index("by_teacher_date", ["teacherId", "year", "month"]),
+
+  pushSubscriptions: defineTable({
+    userId: v.id("users"), // link to the user in your users table
+    clerkId: v.string(), // for quick lookup via Clerk
+    subscription: v.string(), // JSON.stringify(PushSubscription)
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_clerkId", ["clerkId"]),
 });

@@ -21,6 +21,8 @@ import type * as lessonManagement from "../lessonManagement.js";
 import type * as lessonRatings from "../lessonRatings.js";
 import type * as messages from "../messages.js";
 import type * as payments from "../payments.js";
+import type * as pushActions from "../pushActions.js";
+import type * as pushSubscriptions from "../pushSubscriptions.js";
 import type * as recordings from "../recordings.js";
 import type * as schedules from "../schedules.js";
 import type * as stats from "../stats.js";
@@ -51,6 +53,8 @@ declare const fullApi: ApiFromModules<{
   lessonRatings: typeof lessonRatings;
   messages: typeof messages;
   payments: typeof payments;
+  pushActions: typeof pushActions;
+  pushSubscriptions: typeof pushSubscriptions;
   recordings: typeof recordings;
   schedules: typeof schedules;
   stats: typeof stats;

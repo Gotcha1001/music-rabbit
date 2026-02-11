@@ -1,1 +1,13 @@
-{}
+{
+  "files.exclude": {
+    "**/public/sw.js": false
+  },
+  "search.exclude": {
+    "**/public/sw.js": false
+  },
+  "typescript.validate.enable": true,
+  "javascript.validate.enable": false,
+  "files.associations": {
+    "**/public/sw.js": "javascript"
+  }
+}

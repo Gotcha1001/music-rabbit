@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
 import {
@@ -50,6 +55,7 @@ export type Lesson = {
   joinedAt?: number;
   markedBy?: Id<"users">;
   markedAt?: number;
+  scheduledTime?: number;
 };
 // Helper to convert HH:mm to minutes
 function timeToMinutes(time: string): number {
@@ -1758,5 +1764,74 @@ export const teacherRequestReschedule = mutation({
     });
 
     return { success: true, status: "pending" };
+  },
+});
+
+// ============================================================================
+// INTERNAL: Get upcoming lessons in a time window (used by push reminders)
+// Returns enriched lessons with studentId, teacherName, time, zoomLink
+// ============================================================================
+export const getLessonsInTimeWindow = internalQuery({
+  args: {
+    windowStart: v.number(),
+    windowEnd: v.number(),
+  },
+  handler: async (ctx, { windowStart, windowEnd }) => {
+    // Convert timestamps to date strings for index-based filtering
+    const startDate = new Date(windowStart).toISOString().split("T")[0]; // yyyy-MM-dd
+    const endDate = new Date(windowEnd + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0]; // add 1 day buffer
+
+    // ✅ Filter by date range BEFORE collecting — avoids full table scan
+    const relevantSchedules = await ctx.db
+      .query("schedules")
+      .filter((q) =>
+        q.and(
+          q.gte(q.field("date"), startDate),
+          q.lte(q.field("date"), endDate),
+        ),
+      )
+      .collect();
+
+    const upcoming = [];
+
+    for (const sched of relevantSchedules) {
+      for (const lessonRaw of sched.lessons) {
+        const lesson = lessonRaw as Lesson;
+
+        let lessonTimestamp: number;
+        if (lesson.scheduledTime) {
+          lessonTimestamp = lesson.scheduledTime;
+        } else {
+          const [year, month, day] = sched.date.split("-").map(Number);
+          const [hour, minute] = lesson.time.split(":").map(Number);
+          lessonTimestamp = new Date(
+            year,
+            month - 1,
+            day,
+            hour,
+            minute,
+          ).getTime();
+        }
+
+        if (
+          lessonTimestamp >= windowStart &&
+          lessonTimestamp <= windowEnd &&
+          lesson.state === "scheduled"
+        ) {
+          const teacher = await ctx.db.get(sched.teacherId);
+          upcoming.push({
+            _id: lesson.lessonId,
+            studentId: lesson.studentId,
+            teacherName: teacher?.name || "Your teacher",
+            time: lesson.time,
+            zoomLink: lesson.zoomLink || teacher?.zoomLink || "/dashboard",
+          });
+        }
+      }
+    }
+
+    return upcoming;
   },
 });
