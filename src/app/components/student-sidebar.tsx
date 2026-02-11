@@ -153,18 +153,25 @@ import {
   Music2,
   ClipboardList,
   Gamepad2,
+  Bell, // ← optional: for icon consistency
 } from "lucide-react";
 
 import { SignOutButton } from "@clerk/nextjs";
 
 // ────────────────────────────────────────────────
-// Import the tooltip components!
+// Import tooltip components
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { PushNotificationToggle } from "./PushNotificationToggle";
+
+// ────────────────────────────────────────────────
+// NEW: Import the notification toggle
+
+// Adjust the path if your component is in a different folder
 
 const links = [
   { name: "Dashboard", href: "/dashboard/student", icon: Home },
@@ -182,8 +189,6 @@ const links = [
     href: "/dashboard/student/evaluations",
     icon: ClipboardList,
   },
-  // ────────────────────────────────────────────────
-  // External game link
   {
     name: "Self-Testing Game",
     href: "https://music-course-xi.vercel.app/",
@@ -219,10 +224,6 @@ export function StudentSidebar() {
               {links.map((link) => {
                 const isActive = !link.external && pathname === link.href;
 
-                // ────────────────────────────────────────────────
-                // Normal internal link → no tooltip
-                // External game link → wrapped with tooltip
-                // ────────────────────────────────────────────────
                 const buttonContent = (
                   <SidebarMenuButton
                     asChild
@@ -258,7 +259,6 @@ export function StudentSidebar() {
                   </SidebarMenuButton>
                 );
 
-                // Only wrap the game link with tooltip
                 if (link.external) {
                   return (
                     <TooltipProvider key={link.href}>
@@ -274,7 +274,6 @@ export function StudentSidebar() {
                   );
                 }
 
-                // Normal items — no tooltip
                 return (
                   <SidebarMenuItem key={link.href}>
                     {buttonContent}
@@ -288,16 +287,25 @@ export function StudentSidebar() {
 
       {/* Footer */}
       <SidebarFooter className="p-4 border-t border-purple-800/30">
-        <div className="text-center space-y-3">
-          <p className="text-sm font-medium text-purple-300">
-            {user?.firstName || "Student"}
-          </p>
-          <SignOutButton>
-            <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-900/30 hover:bg-red-900/50 text-red-300 hover:text-red-200 text-sm font-medium transition">
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </button>
-          </SignOutButton>
+        <div className="space-y-4">
+          {/* ────────────────────────────── */}
+          {/* Notification toggle goes here */}
+          <div className="px-2 py-1">
+            <PushNotificationToggle variant="switch" />
+          </div>
+          {/* ────────────────────────────── */}
+
+          <div className="text-center space-y-3">
+            <p className="text-sm font-medium text-purple-300">
+              {user?.firstName || "Student"}
+            </p>
+            <SignOutButton>
+              <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-900/30 hover:bg-red-900/50 text-red-300 hover:text-red-200 text-sm font-medium transition">
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </button>
+            </SignOutButton>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>
