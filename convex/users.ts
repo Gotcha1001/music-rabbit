@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 
 export const createOrGet = mutation({
@@ -367,12 +367,6 @@ export const autoAssignTeacher = mutation({
   },
 });
 
-// ────────────────────────────────────────────────
-// NEW: Allow users to set their WhatsApp / contact phone number
-// ────────────────────────────────────────────────
-// ────────────────────────────────────────────────
-// Allow users to set or CLEAR their WhatsApp / contact phone number
-// ────────────────────────────────────────────────
 export const setContactInfo = mutation({
   args: {
     countryCode: v.optional(v.string()),
@@ -433,5 +427,30 @@ export const setContactInfo = mutation({
 
     // Return the updated user document
     return await ctx.db.get(user._id);
+  },
+});
+export const getForNotification = internalQuery({
+  args: { id: v.id("users") },
+  handler: async (ctx, { id }) => {
+    return await ctx.db.get(id);
+  },
+});
+// ────────────────────────────────────────────────
+// Internal queries – safe for backend/cron/actions
+// ────────────────────────────────────────────────
+
+export const getUserById = internalQuery({
+  args: { id: v.id("users") },
+  handler: async (ctx, { id }) => {
+    return await ctx.db.get(id);
+  },
+});
+
+export const getTeacherById = internalQuery({
+  args: { id: v.id("users") },
+  handler: async (ctx, { id }) => {
+    const user = await ctx.db.get(id);
+    if (user?.role !== "teacher") return null;
+    return user;
   },
 });

@@ -59,7 +59,7 @@ export default defineSchema({
         markedAt: v.optional(v.number()), // Timestamp
 
         // ✅ ADD THIS - Timestamp when lesson was scheduled (for date filtering)
-        scheduledTime: v.optional(v.number()),
+        scheduledTime: v.number(),
 
         // UPDATED: New payment-based status system
         status: v.union(
