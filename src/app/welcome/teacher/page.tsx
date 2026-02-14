@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lightbulb, Calendar, Users, Sparkles } from "lucide-react";
+import { Lightbulb, Calendar, Users, Sparkles, Video } from "lucide-react";
 import { motion } from "framer-motion";
 
 const weeklyTips = [
@@ -21,6 +21,50 @@ const weeklyTips = [
     title: "Record short 15-second wins",
     content:
       "After a breakthrough, ask permission to record a quick clip. Send it via message — huge morale boost!",
+  },
+  {
+    title: "Pro Tip: Use Dual Cameras for Better Lessons",
+    icon: Video,
+    content: (
+      <div className="space-y-3">
+        <ol className="list-decimal pl-5 space-y-2 text-indigo-200">
+          <li>
+            Open OBS Studio (free download:{" "}
+            <a
+              href="https://obsproject.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-400 hover:text-indigo-300 underline"
+            >
+              obsproject.com
+            </a>
+            )
+          </li>
+          <li>
+            Install Iriun Webcam app on your phone and PC (
+            <a
+              href="https://iriun.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-400 hover:text-indigo-300 underline"
+            >
+              iriun.com
+            </a>
+            ). Connect them.
+          </li>
+          <li>
+            In OBS, add your main webcam and phone as sources for a dual-view
+            setup.
+          </li>
+          <li>
+            In Zoom, select &quot;OBS Virtual Camera&quot; as your video source.
+          </li>
+        </ol>
+        <p className="text-indigo-300 font-medium mt-4">
+          ✨ This shows both your face and hands/instrument clearly!
+        </p>
+      </div>
+    ),
   },
 ];
 
@@ -49,21 +93,29 @@ export default function TeacherWelcome() {
           <CardHeader>
             <CardTitle className="text-2xl text-center flex items-center justify-center gap-3">
               <Lightbulb className="h-6 w-6 text-yellow-400" />
-              This Week&apos;s Teaching Tip
+              Teaching Tips & Setup Guide
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {weeklyTips.map((tip, i) => (
-              <div
-                key={i}
-                className="bg-black/40 p-6 rounded-xl border border-indigo-800/50"
-              >
-                <h3 className="text-xl font-semibold text-indigo-100 mb-3">
-                  {tip.title}
-                </h3>
-                <p className="text-indigo-200">{tip.content}</p>
-              </div>
-            ))}
+            {weeklyTips.map((tip, i) => {
+              const Icon = tip.icon || null;
+              return (
+                <div
+                  key={i}
+                  className="bg-black/40 p-6 rounded-xl border border-indigo-800/50"
+                >
+                  <h3 className="text-xl font-semibold text-indigo-100 mb-3 flex items-center gap-2">
+                    {Icon && <Icon className="h-5 w-5 text-indigo-400" />}
+                    {tip.title}
+                  </h3>
+                  {typeof tip.content === "string" ? (
+                    <p className="text-indigo-200">{tip.content}</p>
+                  ) : (
+                    tip.content
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 

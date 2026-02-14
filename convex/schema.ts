@@ -285,7 +285,7 @@ export default defineSchema({
   tutorMemos: defineTable({
     scheduleId: v.optional(v.id("schedules")), // Optional now
     lessonId: v.optional(v.string()), // Optional now
-    studentId: v.id("users"),
+    studentId: v.optional(v.id("users")),
     teacherId: v.optional(v.id("users")), // Optional now
     teacherName: v.optional(v.string()), // Optional now
     status: v.optional(
@@ -305,13 +305,37 @@ export default defineSchema({
     // NEW FIELDS for general info
     type: v.optional(v.union(v.literal("lesson"), v.literal("general"))), // To distinguish entry types
     content: v.optional(v.string()), // Free-text for general notes
+    nextLessonFocus: v.optional(v.string()), // "Improve left hand coordination"
+    nextBookPageRef: v.optional(v.string()), // "Alfred Book 1 – page 34–35"
+    nextPiece: v.optional(v.string()), // "Ode to Joy variation"
+
+    // NEW – structured what went well (easy to display / graph later)
+    wentWell: v.optional(v.array(v.string())), // ["Good rhythm", "Nice dynamics", "Great focus"]
+
+    // NEW – optional skill snapshot (for progress tracking)
+    skillRatings: v.optional(
+      v.object({
+        technique: v.optional(v.number()), // 1–5 or 1–10
+        rhythm: v.optional(v.number()),
+        reading: v.optional(v.number()),
+        theory: v.optional(v.number()),
+        expression: v.optional(v.number()),
+      }),
+    ),
+
+    // Quality of life / admin visibility
+    feedbackCompleted: v.optional(v.boolean()), // true after teacher saves
+    markedBy: v.optional(v.id("users")), // who finally submitted it (teacher or admin)
+    markedAt: v.optional(v.number()),
     updatedBy: v.optional(v.id("users")),
     updatedAt: v.optional(v.number()),
   })
     .index("by_student", ["studentId"])
     .index("by_teacher", ["teacherId"])
     .index("by_schedule_lesson", ["scheduleId", "lessonId"])
-    .index("by_type", ["type"]),
+    .index("by_type", ["type"])
+    .index("by_teacher_completed", ["teacherId", "feedbackCompleted"])
+    .index("by_created_recent", ["createdAt"]),
 
   lessonCancellations: defineTable({
     scheduleId: v.id("schedules"),
