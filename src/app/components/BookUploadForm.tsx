@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { X, Plus, Upload, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
@@ -50,8 +51,16 @@ export function BookUploadForm() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // ────────────────────────────────────────────────
+  // NEW STATE for series fields (all optional)
+  // ────────────────────────────────────────────────
+  const [seriesCategory, setSeriesCategory] = useState("");
+  const [seriesGroup, setSeriesGroup] = useState("");
+  const [seriesOrder, setSeriesOrder] = useState("");
+  const [isSeriesEnd, setIsSeriesEnd] = useState(false);
+
   const selectedCategory = categories.find(
-    (c: Doc<"bookCategories">) => c._id === categoryId
+    (c: Doc<"bookCategories">) => c._id === categoryId,
   );
 
   const handleAddTag = () => {
@@ -62,7 +71,7 @@ export function BookUploadForm() {
   };
 
   const handleSubmit = async () => {
-    // Frontend validation
+    // Frontend validation (unchanged + new optional series validation)
     if (!title || !instrument || !categoryId || !file) {
       toast.error("Title, Instrument, Category, and PDF file are required");
       return;
@@ -73,31 +82,45 @@ export function BookUploadForm() {
       return;
     }
 
+    // Optional: warn if seriesGroup is set but no order
+    if (seriesGroup && !seriesOrder) {
+      if (
+        !confirm("You set a series name but no order number. Continue anyway?")
+      ) {
+        return;
+      }
+    }
+
     setUploading(true);
 
     try {
-      // Create FormData and append ALL fields
       const formData = new FormData();
       formData.append("file", file);
       formData.append("title", title);
       formData.append("instrument", instrument);
-      formData.append("categoryId", categoryId); // This is the key field!
+      formData.append("categoryId", categoryId);
 
-      // Optional fields - only append if they have values
-      if (levelNumber) {
-        formData.append("levelNumber", levelNumber);
+      if (levelNumber) formData.append("levelNumber", levelNumber);
+      if (subcategory) formData.append("subcategory", subcategory);
+      if (description) formData.append("description", description);
+      if (tags.length > 0) formData.append("tags", JSON.stringify(tags));
+
+      // ────────────────────────────────────────────────
+      // NEW: Append the series fields (only if they have values)
+      // ────────────────────────────────────────────────
+      if (seriesCategory.trim()) {
+        formData.append("seriesCategory", seriesCategory.trim());
       }
-      if (subcategory) {
-        formData.append("subcategory", subcategory);
+      if (seriesGroup.trim()) {
+        formData.append("seriesGroup", seriesGroup.trim());
       }
-      if (description) {
-        formData.append("description", description);
+      if (seriesOrder.trim()) {
+        formData.append("seriesOrder", seriesOrder.trim());
       }
-      if (tags.length > 0) {
-        formData.append("tags", JSON.stringify(tags));
+      if (isSeriesEnd) {
+        formData.append("isSeriesEnd", "true");
       }
 
-      // Upload to your API route
       const response = await fetch("/api/upload-book", {
         method: "POST",
         body: formData,
@@ -110,7 +133,7 @@ export function BookUploadForm() {
 
       toast.success("Book uploaded successfully!");
 
-      // Reset form
+      // Reset form (including new fields)
       setTitle("");
       setInstrument("");
       setCategoryId("");
@@ -120,6 +143,10 @@ export function BookUploadForm() {
       setTags([]);
       setTagInput("");
       setFile(null);
+      setSeriesCategory("");
+      setSeriesGroup("");
+      setSeriesOrder("");
+      setIsSeriesEnd(false);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Upload failed";
       console.error("Upload error:", errorMessage);
@@ -135,6 +162,7 @@ export function BookUploadForm() {
         <CardTitle className="text-3xl font-serif">Upload New Book</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Existing fields - unchanged */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <Label>Title *</Label>
@@ -267,6 +295,69 @@ export function BookUploadForm() {
                 />
               </Badge>
             ))}
+          </div>
+        </div>
+
+        {/* ────────────────────────────────────────────────
+            NEW SECTION: Series / Progression Info
+            ──────────────────────────────────────────────── */}
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-semibold mb-4">
+            Series / Progression (Optional)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label>Series Category (e.g. &quot;Major Scales&quot;)</Label>
+              <Input
+                value={seriesCategory}
+                onChange={(e) => setSeriesCategory(e.target.value)}
+                placeholder="Major Scales / Method Books"
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Groups similar series together in lists
+              </p>
+            </div>
+
+            <div>
+              <Label>Series Name (e.g. &quot;C Major Complete&quot;)</Label>
+              <Input
+                value={seriesGroup}
+                onChange={(e) => setSeriesGroup(e.target.value)}
+                placeholder="C Major Complete / Alfred Lesson Book 1"
+                className="mt-2"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+            <div>
+              <Label>Lesson/Order Number</Label>
+              <Input
+                type="number"
+                min="1"
+                value={seriesOrder}
+                onChange={(e) => setSeriesOrder(e.target.value)}
+                placeholder="1, 2, 3..."
+                className="w-32 mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Used for auto-next lesson progression
+              </p>
+            </div>
+
+            <div className="flex items-end gap-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isSeriesEnd"
+                  checked={isSeriesEnd}
+                  onCheckedChange={setIsSeriesEnd}
+                />
+                <Label htmlFor="isSeriesEnd">
+                  This is the last lesson in the series
+                </Label>
+              </div>
+            </div>
           </div>
         </div>
 

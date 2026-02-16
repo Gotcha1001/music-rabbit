@@ -1,36 +1,3 @@
-// // app/api/books/delete/route.ts
-// import { NextRequest, NextResponse } from "next/server";
-// import { auth } from "@clerk/nextjs/server";
-// import { deleteFromDrive } from "@/lib/googleDrive";
-// import { convexHttpClient } from "@/lib/convexHttpClient";
-// import { api } from "../../../../../convex/_generated/api";
-
-// export async function POST(req: NextRequest) {
-//   const { userId } = await auth();
-//   if (!userId)
-//     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-//   const user = await convexHttpClient.query(api.users.get);
-//   if (user?.role !== "admin")
-//     return NextResponse.json({ error: "Admin only" }, { status: 403 });
-
-//   const { bookId, driveFileId } = await req.json();
-
-//   try {
-//     // Delete from Google Drive
-//     await deleteFromDrive(driveFileId);
-//     // Delete metadata from Convex
-//     await convexHttpClient.setAuth(
-//       await auth().getToken({ template: "convex" })
-//     );
-//     await convexHttpClient.mutation(api.books.remove, { bookId });
-//     return NextResponse.json({ success: true });
-//   } catch (error) {
-//     console.error(error);
-//     return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
-//   }
-// }
-
 // app/api/books/delete/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
@@ -66,7 +33,7 @@ export async function POST(req: NextRequest) {
   if (!bookId || !driveFileId) {
     return NextResponse.json(
       { error: "Missing bookId or driveFileId" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -82,7 +49,7 @@ export async function POST(req: NextRequest) {
     console.error("Delete book error:", error);
     return NextResponse.json(
       { error: "Failed to delete book" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

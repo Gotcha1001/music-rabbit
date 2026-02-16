@@ -17,7 +17,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { FileText, Calendar, User } from "lucide-react";
-// Using built-in date formatting
 
 type MemoStatus = "OK" | "ET" | "NA" | "TI" | "TL";
 
@@ -49,6 +48,15 @@ export function TutorMemoSection({
     lessonId,
   });
 
+  // NEW: Fetch the full book object if lesson has bookId (needed for series check)
+  const currentBook = useQuery(
+    api.books.getById,
+    lesson?.bookId ? { id: lesson.bookId } : "skip",
+  );
+
+  // NEW: Mutation to auto-assign next book in series
+  const assignNextInSeries = useMutation(api.users.assignNextInSeries);
+
   useEffect(() => {
     if (status === "OK" && lesson?.bookTitle && !bookUsed) {
       setBookUsed(lesson.bookTitle);
@@ -78,8 +86,11 @@ export function TutorMemoSection({
       toast.error("Please specify which book was used");
       return;
     }
+
     setIsSaving(true);
+
     try {
+      // 1. Save the tutor memo
       await saveMemo({
         scheduleId,
         lessonId,
@@ -89,12 +100,42 @@ export function TutorMemoSection({
         pageProgress: pageProgress || undefined,
         reason: reason || undefined,
       });
+
+      // 2. Update lesson status
       await updateLesson({
         scheduleId,
         lessonId,
         updates: { forceStatus: statusMap[status] },
       });
+
+      // ────────────────────────────────────────────────
+      // NEW: AUTO-PROGRESSION TRIGGER
+      // If lesson was OK and the book is part of a series → auto-assign next
+      // ────────────────────────────────────────────────
+      if (status === "OK" && currentBook?.seriesGroup) {
+        try {
+          const result = await assignNextInSeries({
+            studentId,
+            completedBookId: currentBook._id,
+          });
+
+          if (result.success) {
+            if (result.nextBook) {
+              toast.success(`Next lesson assigned: ${result.nextBook.title}`);
+            } else {
+              toast.success("Series completed — no more lessons assigned");
+            }
+          } else {
+            toast.info("No next lesson available in this series");
+          }
+        } catch (autoErr) {
+          console.error("Auto-next failed:", autoErr);
+          toast.error("Auto-assignment failed — please assign manually");
+        }
+      }
+
       toast.success("Tutor memo saved!");
+
       // Reset form
       setStatus("OK");
       setBookUsed("");
@@ -162,6 +203,7 @@ export function TutorMemoSection({
               </SelectContent>
             </Select>
           </div>
+
           {/* Book Used (only for OK status) */}
           {status === "OK" && (
             <>
@@ -187,6 +229,7 @@ export function TutorMemoSection({
               </div>
             </>
           )}
+
           {/* Reason (optional for all statuses) */}
           <div>
             <Label className="text-purple-300">
@@ -200,6 +243,7 @@ export function TutorMemoSection({
               className="bg-purple-900/30 border-purple-700 text-purple-200"
             />
           </div>
+
           <Button
             onClick={handleSaveMemo}
             disabled={isSaving}
@@ -209,6 +253,7 @@ export function TutorMemoSection({
           </Button>
         </CardContent>
       </Card>
+
       {/* Memo History */}
       {studentMemos && studentMemos.length > 0 && (
         <Card className="bg-gradient-to-br from-purple-950/60 to-black/60 border-2 border-purple-800/30">
