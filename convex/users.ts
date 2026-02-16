@@ -68,6 +68,8 @@ export const createOrGet = mutation({
       instrument: "",
       currentTeacher: undefined,
       tokenIdentifier: identity.tokenIdentifier || "",
+      currentBookId: undefined, // explicit for clarity
+      currentSeriesProgress: undefined, // ← NEW: initialize as undefined (safe)
     });
 
     return await ctx.db.get(userId);
@@ -234,7 +236,7 @@ export const setInstrument = mutation({
 
     await ctx.db.patch(user._id, { instrument });
 
-    // ✅ Auto-initialize availability for teachers
+    // Auto-initialize availability for teachers
     if (user.role === "teacher" && user.timezone) {
       await ctx.runMutation(api.availability.autoSetAvailability, {
         teacherId: user._id,
@@ -275,6 +277,7 @@ export const setZoomLink = mutation({
     await ctx.db.patch(user._id, { zoomLink: trimmed });
   },
 });
+
 export const setTimezone = mutation({
   args: {
     timezone: v.string(),
@@ -301,6 +304,7 @@ export const setTimezone = mutation({
     return await ctx.db.get(user._id);
   },
 });
+
 export const getAdmin = query({
   handler: async (ctx) => {
     return await ctx.db
@@ -309,7 +313,7 @@ export const getAdmin = query({
       .first();
   },
 });
-// convex/users.ts
+
 export const getMe = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -350,7 +354,7 @@ export const updateTeacherProfile = mutation({
     return { success: true };
   },
 });
-// convex/users.ts — add this
+
 export const autoAssignTeacher = mutation({
   args: { studentId: v.id("users"), teacherId: v.id("users") },
   handler: async (ctx, { studentId, teacherId }) => {
@@ -360,7 +364,6 @@ export const autoAssignTeacher = mutation({
     if (!student || student.role !== "student") return;
     if (!teacher || teacher.role !== "teacher") return;
 
-    // Only update if not already set or if different
     if (student.currentTeacher !== teacherId) {
       await ctx.db.patch(studentId, { currentTeacher: teacherId });
     }
@@ -383,23 +386,19 @@ export const setContactInfo = mutation({
 
     if (!user) throw new Error("User not found");
 
-    // Track whether each field was explicitly provided in the request
     const hasCountryCode = "countryCode" in args;
     const hasPhoneNumber = "phoneNumber" in args;
 
-    // Normalize / validate countryCode
     let countryCode = args.countryCode;
     if (hasCountryCode) {
       if (countryCode && !countryCode.startsWith("+")) {
         throw new Error("Country code must start with '+' (e.g. +27)");
       }
-      // Empty string explicitly means "clear this field"
       if (countryCode === "") {
         countryCode = undefined;
       }
     }
 
-    // Normalize / validate phoneNumber
     let phoneNumber = args.phoneNumber;
     if (hasPhoneNumber) {
       const cleaned = (phoneNumber ?? "").replace(/\D/g, "");
@@ -409,34 +408,28 @@ export const setContactInfo = mutation({
       phoneNumber = cleaned || undefined;
     }
 
-    // Build the updates object
-    // We include the field even if we're clearing it (setting to undefined)
     const updates: Record<string, string | undefined> = {};
 
-    if (hasCountryCode) {
-      updates.countryCode = countryCode;
-    }
-    if (hasPhoneNumber) {
-      updates.phoneNumber = phoneNumber;
-    }
+    if (hasCountryCode) updates.countryCode = countryCode;
+    if (hasPhoneNumber) updates.phoneNumber = phoneNumber;
 
-    // Only patch if there is actually something to change
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(user._id, updates);
     }
 
-    // Return the updated user document
     return await ctx.db.get(user._id);
   },
 });
+
 export const getForNotification = internalQuery({
   args: { id: v.id("users") },
   handler: async (ctx, { id }) => {
     return await ctx.db.get(id);
   },
 });
+
 // ────────────────────────────────────────────────
-// Internal queries – safe for backend/cron/actions
+// Internal queries
 // ────────────────────────────────────────────────
 
 export const getUserById = internalQuery({
@@ -452,5 +445,63 @@ export const getTeacherById = internalQuery({
     const user = await ctx.db.get(id);
     if (user?.role !== "teacher") return null;
     return user;
+  },
+});
+
+// ────────────────────────────────────────────────
+// NEW: Auto-assign next book in series (core automation logic)
+// Call this when teacher marks lesson "OK" and book is in series
+// ────────────────────────────────────────────────
+export const assignNextInSeries = mutation({
+  args: {
+    studentId: v.id("users"),
+    completedBookId: v.id("books"), // the book just finished
+  },
+  handler: async (ctx, { studentId, completedBookId }) => {
+    const student = await ctx.db.get(studentId);
+    if (!student || student.role !== "student") {
+      throw new Error("Invalid student");
+    }
+
+    const completedBook = await ctx.db.get(completedBookId);
+    if (
+      !completedBook ||
+      !completedBook.seriesGroup ||
+      !completedBook.seriesOrder
+    ) {
+      return { success: false, reason: "Not a series book" };
+    }
+
+    // Find next book (using the index we added earlier)
+    const nextBook = await ctx.db
+      .query("books")
+      .withIndex("by_series_group_order", (q) =>
+        q
+          .eq("seriesGroup", completedBook.seriesGroup!)
+          .eq("seriesOrder", (completedBook.seriesOrder ?? 0) + 1),
+      )
+      .first();
+
+    if (!nextBook) {
+      // End of series — clear assignment
+      await ctx.db.patch(studentId, {
+        currentBookId: undefined,
+        currentSeriesProgress: undefined,
+      });
+      return { success: true, message: "Series completed", nextBook: null };
+    }
+
+    // Assign next book + update progress tracker
+    await ctx.db.patch(studentId, {
+      currentBookId: nextBook._id,
+      currentSeriesProgress: {
+        seriesGroup: completedBook.seriesGroup!,
+        currentOrder: nextBook.seriesOrder!,
+        totalLessons: undefined, // fill later if needed
+        lastAssignedAt: Date.now(),
+      },
+    });
+
+    return { success: true, nextBook };
   },
 });

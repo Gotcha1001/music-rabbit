@@ -14,7 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { BookOpen, Search, Sparkles, Check, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { BookOpen, Search, Sparkles, Check, X, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
@@ -23,9 +24,6 @@ type BookSelectorProps = {
   currentBookId: Id<"books"> | null;
   scheduleId: Id<"schedules">;
   lessonId: string;
-  // These are kept in props in case you want to use them later (e.g. filtering)
-  // studentId?: Id<"users">;
-  // instrument?: string;
 };
 
 export function BookSelector({
@@ -45,7 +43,7 @@ export function BookSelector({
             categoryId: selectedCategoryId as Id<"bookCategories">,
             search: search || undefined,
           }
-        : "skip"
+        : "skip",
     ) ?? [];
 
   const updateLesson = useMutation(api.schedules.updateLesson);
@@ -61,7 +59,6 @@ export function BookSelector({
       setSelectedCategoryId("");
       setSearch("");
     } catch {
-      // No need for the error parameter if we're not using it
       toast.error("Failed to update book");
     }
   };
@@ -88,21 +85,60 @@ export function BookSelector({
       {/* Radial gradient background */}
       <div className="absolute inset-0 bg-gradient-radial from-purple-500/20 via-purple-900/10 to-transparent blur-3xl -z-10" />
 
-      <div className="relative space-y-5 p-6 bg-gradient-to-br from-purple-950/60 via-purple-900/40 to-indigo-950/60 rounded-2xl border border-purple-500/30 shadow-2xl backdrop-blur-sm">
+      <div className="relative space-y-6 p-6 bg-gradient-to-br from-purple-950/60 via-purple-900/40 to-indigo-950/60 rounded-2xl border border-purple-500/30 shadow-2xl backdrop-blur-sm">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex items-center gap-3"
+          className="flex items-center justify-between"
         >
-          <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-lg">
-            <Sparkles className="h-5 w-5 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-lg">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-200 via-purple-100 to-indigo-200 bg-clip-text text-transparent">
+              Assign Book to Lesson
+            </h3>
           </div>
-          <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-200 via-purple-100 to-indigo-200 bg-clip-text text-transparent">
-            Change Assigned Book
-          </h3>
+          {currentBookId && (
+            <Badge
+              variant="outline"
+              className="bg-purple-900/50 text-purple-200"
+            >
+              Current book assigned
+            </Badge>
+          )}
         </motion.div>
+
+        {/* ─── NEW: Continue Series Suggestion ─── */}
+        {currentBookId && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 bg-purple-800/40 rounded-lg border border-purple-500/30 flex items-center justify-between gap-4"
+          >
+            <div className="flex-1">
+              <p className="text-sm text-purple-300 mb-1">
+                Current series progress
+              </p>
+              <p className="font-medium text-purple-100">
+                Continue automatically to next lesson in series?
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+              onClick={() => {
+                // Placeholder — connect to real auto-next later
+                toast.info("Auto-assign next lesson coming soon!");
+                // Future: call getNextInSeries → updateLesson + update student currentBookId
+              }}
+            >
+              Continue Series <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </motion.div>
+        )}
 
         {/* Category selector */}
         <motion.div
@@ -142,7 +178,7 @@ export function BookSelector({
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
-              className="space-y-4"
+              className="space-y-5"
             >
               {/* Search */}
               <motion.div
@@ -153,7 +189,7 @@ export function BookSelector({
               >
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-400" />
                 <Input
-                  placeholder="Search by title, level, volume..."
+                  placeholder="Search by title, level, series..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10 bg-purple-900/60 border-purple-500/50 focus:border-purple-400 transition-all duration-200 backdrop-blur-sm shadow-lg"
@@ -186,7 +222,6 @@ export function BookSelector({
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
                       >
                         <Button
                           variant="ghost"
@@ -195,7 +230,7 @@ export function BookSelector({
                           className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/30 border border-red-800/30 hover:border-red-700/50 transition-all duration-200"
                         >
                           <X className="h-4 w-4 mr-2" />
-                          Remove current book
+                          Remove current book assignment
                         </Button>
                       </motion.div>
                     )}
@@ -219,11 +254,10 @@ export function BookSelector({
                             }`}
                             onClick={() => handleBookSelect(book._id)}
                           >
-                            {/* Hover gradient overlay */}
                             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/5 to-indigo-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                             <div className="relative flex items-center justify-between">
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-4 flex-1">
                                 <motion.div
                                   whileHover={{ rotate: [0, -10, 10, -10, 0] }}
                                   transition={{ duration: 0.5 }}
@@ -235,7 +269,7 @@ export function BookSelector({
                                 >
                                   <BookOpen className="h-5 w-5 text-purple-100" />
                                 </motion.div>
-                                <div>
+                                <div className="flex-1">
                                   <p
                                     className={`font-semibold ${
                                       isSelected
@@ -245,16 +279,27 @@ export function BookSelector({
                                   >
                                     {book.title}
                                   </p>
-                                  <p className="text-sm text-purple-400/90 mt-0.5">
+                                  <p className="text-sm text-purple-400/90 mt-0.5 flex flex-wrap items-center gap-2">
                                     {book.levelNumber && (
-                                      <span className="font-medium">
-                                        Level {book.levelNumber}
-                                      </span>
+                                      <span>Level {book.levelNumber}</span>
                                     )}
                                     {book.levelNumber &&
                                       book.subcategory &&
                                       " • "}
                                     {book.subcategory || "General"}
+
+                                    {/* ─── SERIES BADGE ─── */}
+                                    {book.seriesGroup && (
+                                      <Badge
+                                        variant="outline"
+                                        className="ml-2 bg-purple-900/50 text-purple-200 border-purple-500/50"
+                                      >
+                                        {book.seriesGroup}
+                                        {book.seriesOrder &&
+                                          ` • #${book.seriesOrder}`}
+                                        {book.isSeriesEnd && " (End)"}
+                                      </Badge>
+                                    )}
                                   </p>
                                 </div>
                               </div>

@@ -11,7 +11,7 @@ export const upload = mutation({
   args: {
     title: v.string(),
     instrument: v.string(),
-    categoryId: v.id("bookCategories"), // ← Make sure this is in args
+    categoryId: v.id("bookCategories"),
     levelNumber: v.optional(v.number()),
     difficulty: v.optional(v.number()),
     subcategory: v.optional(v.string()),
@@ -20,6 +20,14 @@ export const upload = mutation({
     driveFileId: v.string(),
     driveViewLink: v.string(),
     driveDownloadLink: v.optional(v.string()),
+
+    // ────────────────────────────────────────────────
+    // NEW arguments — added here
+    // ────────────────────────────────────────────────
+    seriesGroup: v.optional(v.string()), // "C Major Complete"
+    seriesOrder: v.optional(v.number()), // 1, 2, 3...
+    seriesCategory: v.optional(v.string()), // "Major Scales"
+    isSeriesEnd: v.optional(v.boolean()), // true only on last lesson
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -47,11 +55,16 @@ export const upload = mutation({
       }
     }
 
-    // ✅ NOW INSERT WITH ALL REQUIRED FIELDS
+    // Optional: validate series fields if used
+    if (args.seriesGroup && !args.seriesOrder) {
+      throw new Error("seriesOrder is required when seriesGroup is provided");
+    }
+
+    // Insert with ALL fields (old + new)
     await ctx.db.insert("books", {
       title: args.title,
       instrument: args.instrument,
-      categoryId: args.categoryId, // ← REQUIRED
+      categoryId: args.categoryId,
       levelNumber: args.levelNumber,
       difficulty: args.difficulty,
       subcategory: args.subcategory,
@@ -63,9 +76,21 @@ export const upload = mutation({
       uploadedBy: user._id,
       uploadedAt: Date.now(),
       timesUsed: 0,
+
+      // ────────────────────────────────────────────────
+      // NEW fields being saved
+      // ────────────────────────────────────────────────
+      seriesGroup: args.seriesGroup,
+      seriesOrder: args.seriesOrder,
+      seriesCategory: args.seriesCategory,
+      isSeriesEnd: args.isSeriesEnd,
     });
   },
 });
+
+// ────────────────────────────────────────────────
+// Existing queries (unchanged)
+// ────────────────────────────────────────────────
 
 export const getById = query({
   args: { id: v.id("books") },
@@ -84,13 +109,6 @@ export const getByInstrument = query({
   },
 });
 
-// Remove getUrl if no longer using Convex storage
-// export const getUrl = query({
-//   args: { storageId: v.id("_storage") },
-//   handler: async (ctx, { storageId }) => {
-//     return await ctx.storage.getUrl(storageId);
-//   },
-// });
 export const remove = mutation({
   args: { bookId: v.id("books") },
   handler: async (ctx, { bookId }) => {
@@ -104,27 +122,22 @@ export const remove = mutation({
 
     if (user?.role !== "admin") throw new Error("Admin only");
 
-    // Optional: also delete the file from Google Drive
-    // (we will do it from the Next.js API route below so we can use the service account)
-
     await ctx.db.delete(bookId);
   },
 });
 
-// convex/books.ts — REPLACE the entire getByCategory function
 export const getByCategory = query({
   args: {
     categoryId: v.id("bookCategories"),
     search: v.optional(v.string()),
   },
   handler: async (ctx, { categoryId, search }) => {
-    // Fetch books sorted by newest first (using the composite index)
     const books = await ctx.db
       .query("books")
       .withIndex("by_category_uploadedAt", (q) =>
         q.eq("categoryId", categoryId),
       )
-      .order("desc") // newest uploaded first
+      .order("desc")
       .collect();
 
     if (!search) return books;
@@ -142,26 +155,13 @@ export const getByCategory = query({
     });
   },
 });
-// export const getAllActive = query({
-//   handler: async (ctx) => {
-//     return await ctx.db
-//       .query("books")
-//       .filter(
-//         (q) =>
-//           q.eq(q.field("isPublic"), true) ||
-//           q.eq(q.field("isPublic"), undefined),
-//       )
-//       .collect();
-//   },
-// });
 
 export const getAllActive = query({
   handler: async (ctx) => {
-    return await ctx.db.query("books").collect(); // ← remove filter for now
+    return await ctx.db.query("books").collect();
   },
 });
 
-// Search books (using search index if you add it)
 export const searchBooks = query({
   args: {
     search: v.optional(v.string()),
@@ -171,7 +171,6 @@ export const searchBooks = query({
   handler: async (ctx, { search, instrument, categoryId }) => {
     let books;
 
-    // Use the most specific index available
     if (instrument) {
       books = await ctx.db
         .query("books")
@@ -186,7 +185,6 @@ export const searchBooks = query({
       books = await ctx.db.query("books").collect();
     }
 
-    // Filter by the other parameters that weren't used in the index
     if (categoryId && instrument) {
       books = books.filter((b) => b.categoryId === categoryId);
     }
@@ -204,7 +202,6 @@ export const searchBooks = query({
   },
 });
 
-// If you add the search index:
 export const fullTextSearch = query({
   args: {
     query: v.string(),
@@ -224,5 +221,34 @@ export const fullTextSearch = query({
     }
 
     return await q.collect();
+  },
+});
+
+// ────────────────────────────────────────────────
+// NEW HELPER QUERY — we'll use this later for auto-next
+// ────────────────────────────────────────────────
+export const getNextInSeries = query({
+  args: {
+    currentBookId: v.id("books"),
+  },
+  handler: async (ctx, { currentBookId }) => {
+    const current = await ctx.db.get(currentBookId);
+    if (!current) return null;
+
+    if (!current.seriesGroup || !current.seriesOrder) {
+      return null; // Not part of a series
+    }
+
+    // Find the next book in the same seriesGroup with order +1
+    const nextBook = await ctx.db
+      .query("books")
+      .withIndex("by_series_group_order", (q) =>
+        q
+          .eq("seriesGroup", current.seriesGroup!)
+          .eq("seriesOrder", (current.seriesOrder ?? 0) + 1),
+      )
+      .first();
+
+    return nextBook || null;
   },
 });

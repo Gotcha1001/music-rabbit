@@ -17,6 +17,21 @@ export default defineSchema({
     tokenIdentifier: v.string(),
     zoomLink: v.optional(v.string()),
     currentBookId: v.optional(v.id("books")),
+
+    // ────────────────────────────────────────────────
+    // NEW FIELD — Required for automated series progression
+    // Tracks the active series + current position
+    // (makes auto-next safe even if teacher temporarily changes books)
+    // ────────────────────────────────────────────────
+    currentSeriesProgress: v.optional(
+      v.object({
+        seriesGroup: v.string(), // "C Major Complete", "Alfred Lesson Book 1"
+        currentOrder: v.number(), // e.g. 3 (last assigned/completed lesson number)
+        totalLessons: v.optional(v.number()), // optional: known total, e.g. 12
+        lastAssignedAt: v.optional(v.number()), // timestamp of last auto-assign
+      }),
+    ),
+
     timezone: v.optional(v.string()),
     country: v.optional(v.string()),
     state: v.optional(v.string()),
@@ -58,20 +73,17 @@ export default defineSchema({
         markedBy: v.optional(v.id("users")), // Teacher/admin who marked
         markedAt: v.optional(v.number()), // Timestamp
 
-        // ✅ ADD THIS - Timestamp when lesson was scheduled (for date filtering)
         scheduledTime: v.number(),
 
-        // UPDATED: New payment-based status system
         status: v.union(
-          v.literal("completed"), // Full pay
-          v.literal("finished_early"), // Full pay - student requested
-          v.literal("no_answer_on_time"), // Full pay - teacher on time, student no-show
-          v.literal("teacher_never_called"), // $20 deduction - teacher missed
-          v.literal("technical_difficulty"), // No pay from either side
-          v.literal("teacher_late"), // Full pay - $5 deduction
+          v.literal("completed"),
+          v.literal("finished_early"),
+          v.literal("no_answer_on_time"),
+          v.literal("teacher_never_called"),
+          v.literal("technical_difficulty"),
+          v.literal("teacher_late"),
         ),
 
-        // Lifecycle state
         state: v.union(
           v.literal("scheduled"),
           v.literal("in_progress"),
@@ -91,9 +103,9 @@ export default defineSchema({
   bookCategories: defineTable({
     name: v.string(),
     slug: v.string(),
-    description: v.optional(v.string()), // ← make optional (not always needed)
-    icon: v.optional(v.string()), // ← optional is fine
-    color: v.optional(v.string()), // ← optional
+    description: v.optional(v.string()),
+    icon: v.optional(v.string()),
+    color: v.optional(v.string()),
     hasLevels: v.boolean(),
     maxLevel: v.optional(v.number()),
     isActive: v.boolean(),
@@ -101,7 +113,7 @@ export default defineSchema({
     createdAt: v.number(),
     createdBy: v.id("users"),
   })
-    .index("by_name", ["name"]) // ← NEW: very useful for "Daily piece"
+    .index("by_name", ["name"])
     .index("by_slug", ["slug"])
     .index("by_active", ["isActive"])
     .index("by_sort_order", ["sortOrder"]),
@@ -128,30 +140,37 @@ export default defineSchema({
     timesUsed: v.optional(v.number()),
     lastUsed: v.optional(v.number()),
 
-    isPublic: v.optional(v.boolean()), // default true later in code
+    isPublic: v.optional(v.boolean()),
     coverImageUrl: v.optional(v.string()),
 
-    // NEW — helpful for daily piece & future features
-    isFeatured: v.optional(v.boolean()), // can mark special daily pieces
-    featuredUntil: v.optional(v.number()), // timestamp — auto-unfeature after day?
+    isFeatured: v.optional(v.boolean()),
+    featuredUntil: v.optional(v.number()),
+
+    seriesGroup: v.optional(v.string()),
+    seriesOrder: v.optional(v.number()),
+    seriesCategory: v.optional(v.string()),
+    isSeriesEnd: v.optional(v.boolean()),
   })
     .index("by_instrument", ["instrument"])
     .index("by_category", ["categoryId"])
     .index("by_instrument_category", ["instrument", "categoryId"])
     .index("by_category_level", ["categoryId", "levelNumber"])
-
-    // Very useful for Daily Piece (show newest first)
-    .index("by_category_uploadedAt", ["categoryId", "uploadedAt"]) // ← composite index
-
-    // For title-based lookup / search
+    .index("by_category_uploadedAt", ["categoryId", "uploadedAt"])
     .index("by_title", ["title"])
-
-    // Full-text search (already good, but can be improved)
+    .index("by_series_group_order", ["seriesGroup", "seriesOrder"])
+    .index("by_series_group", ["seriesGroup"])
     .searchIndex("search_books", {
       searchField: "title",
-      filterFields: ["categoryId", "instrument", "levelNumber", "isPublic"],
+      filterFields: [
+        "categoryId",
+        "instrument",
+        "levelNumber",
+        "isPublic",
+        "seriesGroup",
+      ],
     }),
 
+  // All other tables remain **completely unchanged** below this line
   messages: defineTable({
     fromId: v.id("users"),
     toId: v.id("users"),
@@ -164,32 +183,27 @@ export default defineSchema({
     .index("by_from", ["fromId"])
     .index("by_to_unread", ["toId", "isRead"]),
 
-  // ✅ REPLACE YOUR EXISTING payments TABLE WITH THIS:
   payments: defineTable({
     teacherId: v.id("users"),
-    month: v.string(), // YYYY-MM
+    month: v.string(),
     totalHours: v.number(),
     earnings: v.number(),
     deductions: v.number(),
-
-    // ✅ ADD THESE FIELDS:
-    type: v.optional(v.string()), // "teacher_salary" for salary payments
-    status: v.optional(v.string()), // "Pending", "Processing", "Paid"
-    paidAt: v.optional(v.number()), // Timestamp when marked as paid
-    paidBy: v.optional(v.id("users")), // Admin who marked it paid
-    createdAt: v.optional(v.number()), // When record was created
-    updatedAt: v.optional(v.number()), // Last update
-    notes: v.optional(v.string()), // Optional notes about payment
-
-    // For student payments (if you use this table for both)
+    type: v.optional(v.string()),
+    status: v.optional(v.string()),
+    paidAt: v.optional(v.number()),
+    paidBy: v.optional(v.id("users")),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
     studentId: v.optional(v.id("users")),
     packageId: v.optional(v.id("studentPackages")),
     amount: v.optional(v.number()),
   })
     .index("by_teacher", ["teacherId"])
-    .index("by_month", ["month"]) // ✅ ADD THIS INDEX
-    .index("by_type", ["type"]) // ✅ ADD THIS INDEX
-    .index("by_status", ["status"]), // ✅ ADD THIS INDEX
+    .index("by_month", ["month"])
+    .index("by_type", ["type"])
+    .index("by_status", ["status"]),
 
   inviteCodes: defineTable({
     code: v.string(),
@@ -283,49 +297,41 @@ export default defineSchema({
   }).index("by_student", ["studentId"]),
 
   tutorMemos: defineTable({
-    scheduleId: v.optional(v.id("schedules")), // Optional now
-    lessonId: v.optional(v.string()), // Optional now
+    scheduleId: v.optional(v.id("schedules")),
+    lessonId: v.optional(v.string()),
     studentId: v.optional(v.id("users")),
-    teacherId: v.optional(v.id("users")), // Optional now
-    teacherName: v.optional(v.string()), // Optional now
+    teacherId: v.optional(v.id("users")),
+    teacherName: v.optional(v.string()),
     status: v.optional(
-      // Optional now
       v.union(
-        v.literal("OK"), // Lesson completed successfully (Full Pay)
-        v.literal("ET"), // Ended Early (Full Pay)
-        v.literal("NA"), // No Answer (Full Pay)
-        v.literal("TI"), // Technical Issues (No Pay)
-        v.literal("TL"), // Teacher was late (Full Pay - $5)
+        v.literal("OK"),
+        v.literal("ET"),
+        v.literal("NA"),
+        v.literal("TI"),
+        v.literal("TL"),
       ),
     ),
     bookUsed: v.optional(v.string()),
     pageProgress: v.optional(v.string()),
     reason: v.optional(v.string()),
     createdAt: v.number(),
-    // NEW FIELDS for general info
-    type: v.optional(v.union(v.literal("lesson"), v.literal("general"))), // To distinguish entry types
-    content: v.optional(v.string()), // Free-text for general notes
-    nextLessonFocus: v.optional(v.string()), // "Improve left hand coordination"
-    nextBookPageRef: v.optional(v.string()), // "Alfred Book 1 – page 34–35"
-    nextPiece: v.optional(v.string()), // "Ode to Joy variation"
-
-    // NEW – structured what went well (easy to display / graph later)
-    wentWell: v.optional(v.array(v.string())), // ["Good rhythm", "Nice dynamics", "Great focus"]
-
-    // NEW – optional skill snapshot (for progress tracking)
+    type: v.optional(v.union(v.literal("lesson"), v.literal("general"))),
+    content: v.optional(v.string()),
+    nextLessonFocus: v.optional(v.string()),
+    nextBookPageRef: v.optional(v.string()),
+    nextPiece: v.optional(v.string()),
+    wentWell: v.optional(v.array(v.string())),
     skillRatings: v.optional(
       v.object({
-        technique: v.optional(v.number()), // 1–5 or 1–10
+        technique: v.optional(v.number()),
         rhythm: v.optional(v.number()),
         reading: v.optional(v.number()),
         theory: v.optional(v.number()),
         expression: v.optional(v.number()),
       }),
     ),
-
-    // Quality of life / admin visibility
-    feedbackCompleted: v.optional(v.boolean()), // true after teacher saves
-    markedBy: v.optional(v.id("users")), // who finally submitted it (teacher or admin)
+    feedbackCompleted: v.optional(v.boolean()),
+    markedBy: v.optional(v.id("users")),
     markedAt: v.optional(v.number()),
     updatedBy: v.optional(v.id("users")),
     updatedAt: v.optional(v.number()),
@@ -417,28 +423,25 @@ export default defineSchema({
   studentInfos: defineTable({
     studentId: v.id("users"),
     content: v.string(),
-    updatedBy: v.optional(v.id("users")), // Teacher who last updated
-    updatedAt: v.optional(v.number()), // Timestamp
+    updatedBy: v.optional(v.id("users")),
+    updatedAt: v.optional(v.number()),
   }).index("by_student", ["studentId"]),
 
   evaluations: defineTable({
     studentId: v.id("users"),
     teacherId: v.id("users"),
-    month: v.number(), // Month number (0-11)
+    month: v.number(),
     year: v.number(),
     createdAt: v.number(),
 
-    // Evaluation criteria (using scale: weak, ok, better, good, excellent, perfection)
-    scales: v.string(), // weak | ok | better | good | excellent | perfection
+    scales: v.string(),
     chords: v.string(),
     sightReading: v.string(),
     rhythm: v.string(),
     improvisation: v.string(),
 
-    // Monthly pieces worked on
     piecesWorkedOn: v.array(v.string()),
 
-    // Optional additional notes
     notes: v.optional(v.string()),
   })
     .index("by_student", ["studentId"])
@@ -447,9 +450,9 @@ export default defineSchema({
     .index("by_teacher_date", ["teacherId", "year", "month"]),
 
   pushSubscriptions: defineTable({
-    userId: v.id("users"), // link to the user in your users table
-    clerkId: v.string(), // for quick lookup via Clerk
-    subscription: v.string(), // JSON.stringify(PushSubscription)
+    userId: v.id("users"),
+    clerkId: v.string(),
+    subscription: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

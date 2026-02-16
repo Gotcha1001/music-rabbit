@@ -159,14 +159,22 @@ export async function POST(req: NextRequest) {
     const description = formData.get("description") as string | null;
     const tagsString = formData.get("tags") as string | null;
 
-    // Validation
+    // ────────────────────────────────────────────────
+    // NEW: Parse the series fields (all optional)
+    // ────────────────────────────────────────────────
+    const seriesGroup = formData.get("seriesGroup") as string | null;
+    const seriesOrderStr = formData.get("seriesOrder") as string | null;
+    const seriesCategory = formData.get("seriesCategory") as string | null;
+    const isSeriesEndStr = formData.get("isSeriesEnd") as string | null; // usually "on" or "true"
+
+    // Validation (same as before)
     if (!file || !title || !instrument || !categoryId) {
       return NextResponse.json(
         {
           error:
             "Missing required fields: file, title, instrument, or categoryId",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -181,7 +189,7 @@ export async function POST(req: NextRequest) {
     if (levelNumberStr && (isNaN(levelNumber!) || levelNumber! < 1)) {
       return NextResponse.json(
         { error: "Invalid level number" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -197,7 +205,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Save to Convex
+    // ────────────────────────────────────────────────
+    // NEW: Parse seriesOrder (number) and isSeriesEnd (boolean)
+    // ────────────────────────────────────────────────
+    const seriesOrder = seriesOrderStr
+      ? parseInt(seriesOrderStr, 10)
+      : undefined;
+    if (seriesOrderStr && (isNaN(seriesOrder!) || seriesOrder! < 1)) {
+      return NextResponse.json(
+        { error: "Invalid series order number" },
+        { status: 400 },
+      );
+    }
+
+    const isSeriesEnd = isSeriesEndStr === "true" || isSeriesEndStr === "on";
+
+    // Save to Convex — pass the new fields
     await convexClient.mutation(api.books.upload, {
       title,
       instrument,
@@ -209,6 +232,14 @@ export async function POST(req: NextRequest) {
       driveFileId: driveResponse.fileId,
       driveViewLink: driveResponse.webViewLink,
       driveDownloadLink: driveResponse.webContentLink,
+
+      // ────────────────────────────────────────────────
+      // NEW: forward the series fields
+      // ────────────────────────────────────────────────
+      seriesGroup: seriesGroup?.trim() || undefined,
+      seriesOrder,
+      seriesCategory: seriesCategory?.trim() || undefined,
+      isSeriesEnd: isSeriesEnd || undefined,
     });
 
     return NextResponse.json({
@@ -220,7 +251,7 @@ export async function POST(req: NextRequest) {
     console.error("Upload error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Upload failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
