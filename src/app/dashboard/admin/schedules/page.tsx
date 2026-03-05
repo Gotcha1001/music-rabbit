@@ -218,6 +218,7 @@ import { Calendar, Plus, Sparkles, Zap, Loader2 } from "lucide-react"; // ← AD
 import { Id } from "../../../../../convex/_generated/dataModel";
 import TeacherScheduleManager from "@/app/components/TeacherScheduleManager";
 import { format } from "date-fns"; // ← ADDED: Import format from date-fns
+import { BlankDayButton } from "@/app/components/BlankDayButton";
 
 export default function AdminSchedulesPage() {
   const teachers = useQuery(api.users.getAllTeachers) || [];
@@ -281,6 +282,8 @@ export default function AdminSchedulesPage() {
     <div className="space-y-8">
       {/* ← ADDED: BulkSchedulingSection */}
       <BulkSchedulingSection />
+
+      <BlankDayButton />
 
       <Card className="bg-card border-2 border-border shadow-lg">
         <CardHeader>
