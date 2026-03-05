@@ -98,7 +98,9 @@ export default defineSchema({
         joinedAt: v.optional(v.number()),
       }),
     ),
-  }).index("by_teacher_date", ["teacherId", "date"]),
+  })
+    .index("by_teacher_date", ["teacherId", "date"])
+    .index("by_date", ["date"]),
 
   bookCategories: defineTable({
     name: v.string(),
@@ -358,6 +360,14 @@ export default defineSchema({
     .index("by_cancelled_by", ["cancelledBy"])
     .index("by_schedule", ["scheduleId"]),
 
+  publicHolidays: defineTable({
+    date: v.string(), // YYYY-MM-DD — the day being blanked
+    reason: v.optional(v.string()), // e.g. "Public Holiday", "School closed"
+    createdBy: v.id("users"), // admin who triggered it
+    createdAt: v.number(),
+    lessonsAffected: v.number(), // count of lessons that were cancelled
+  }).index("by_date", ["date"]),
+
   rescheduleRequests: defineTable({
     scheduleId: v.id("schedules"),
     lessonId: v.string(),
@@ -458,4 +468,43 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_clerkId", ["clerkId"]),
+
+  leaveApplications: defineTable({
+    teacherId: v.id("users"),
+    teacherName: v.string(),
+
+    type: v.union(
+      v.literal("Sick Leave"),
+      v.literal("Personal Leave"),
+      v.literal("Emergency"),
+      v.literal("Vacation"),
+      v.literal("Other"),
+    ),
+
+    from: v.string(), // "YYYY-MM-DD"
+    to: v.string(), // "YYYY-MM-DD"
+    days: v.number(), // calendar days inclusive
+
+    reason: v.string(),
+    substitute: v.optional(v.string()),
+
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+    ),
+
+    submittedAt: v.number(), // Date.now()
+    decidedAt: v.optional(v.number()),
+    decidedBy: v.optional(v.id("users")), // admin who actioned it
+    adminNote: v.optional(v.string()),
+
+    // Which academic year this leave belongs to — e.g. "2025"
+    // Used so the 12-day quota resets each year
+    academicYear: v.string(),
+  })
+    .index("by_teacher", ["teacherId"])
+    .index("by_status", ["status"])
+    .index("by_teacher_year", ["teacherId", "academicYear"])
+    .index("by_submitted", ["submittedAt"]),
 });
