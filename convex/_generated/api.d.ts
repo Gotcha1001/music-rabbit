@@ -26,6 +26,7 @@ import type * as publicHolidays from "../publicHolidays.js";
 import type * as pushActions from "../pushActions.js";
 import type * as pushSubscriptions from "../pushSubscriptions.js";
 import type * as recordings from "../recordings.js";
+import type * as resignations from "../resignations.js";
 import type * as schedules from "../schedules.js";
 import type * as stats from "../stats.js";
 import type * as storage from "../storage.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   pushActions: typeof pushActions;
   pushSubscriptions: typeof pushSubscriptions;
   recordings: typeof recordings;
+  resignations: typeof resignations;
   schedules: typeof schedules;
   stats: typeof stats;
   storage: typeof storage;

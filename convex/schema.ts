@@ -507,4 +507,32 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_teacher_year", ["teacherId", "academicYear"])
     .index("by_submitted", ["submittedAt"]),
+
+  resignations: defineTable({
+    teacherId: v.id("users"),
+    teacherName: v.string(),
+
+    // Last working day — must be within 1 month of submission
+    lastWorkingDay: v.string(), // "YYYY-MM-DD"
+
+    reason: v.string(),
+
+    // Optional handover notes for the admin
+    handoverNotes: v.optional(v.string()),
+    shortNotice: v.boolean(),
+
+    status: v.union(
+      v.literal("pending"),
+      v.literal("acknowledged"),
+      v.literal("rejected"),
+    ),
+
+    submittedAt: v.number(), // Date.now()
+    decidedAt: v.optional(v.number()),
+    decidedBy: v.optional(v.id("users")),
+    adminNote: v.optional(v.string()),
+  })
+    .index("by_teacher", ["teacherId"])
+    .index("by_status", ["status"])
+    .index("by_submitted", ["submittedAt"]),
 });
