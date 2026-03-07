@@ -404,7 +404,67 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { useUserDetail } from "@/context/UserDetailContext";
-import { BookOpen, Eye, Search, X } from "lucide-react";
+import {
+  BookOpen,
+  Eye,
+  Search,
+  X,
+  Music,
+  Star,
+  Heart,
+  Guitar,
+  Mic,
+  Headphones,
+  Piano,
+  Radio,
+  Drum,
+} from "lucide-react";
+import type { LucideProps } from "lucide-react";
+
+const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
+  MusicalNote: Music,
+  Music,
+  BookOpen,
+  Star,
+  Heart,
+  Guitar,
+  Mic,
+  Headphones,
+  Piano,
+  Radio,
+  Drum,
+};
+
+function CategoryIcon({
+  icon,
+  color,
+}: {
+  icon?: string | null;
+  color?: string | null;
+}) {
+  if (!icon) return null;
+  const LucideComponent = ICON_MAP[icon];
+  const bg = color ? `${color}20` : "#88888820";
+  const fg = color ?? "#888888";
+  if (LucideComponent) {
+    return (
+      <span
+        className="w-10 h-10 flex items-center justify-center rounded-lg shrink-0"
+        style={{ background: bg }}
+      >
+        <LucideComponent size={20} color={fg} />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="text-2xl w-10 h-10 flex items-center justify-center rounded-lg shrink-0"
+      style={{ background: bg }}
+    >
+      {icon}
+    </span>
+  );
+}
 import {
   Card,
   CardContent,
@@ -469,6 +529,14 @@ export default function StudentBooksPage() {
     return Array.from(new Set([...SUPPORTED_INSTRUMENTS, ...fromBooks])).sort();
   }, [allBooks]);
 
+  // Build a lowercase category name lookup by id
+  const catNameMap = useMemo(() => {
+    if (!categories) return new Map<string, string>();
+    return new Map(
+      categories.map((c) => [c._id as string, c.name.toLowerCase()]),
+    );
+  }, [categories]);
+
   const filteredBooks = useMemo(() => {
     if (!allBooks) return [];
     const term = search.trim().toLowerCase();
@@ -478,7 +546,7 @@ export default function StudentBooksPage() {
       const matchesInstrument =
         term !== "" || // search overrides instrument filter
         selectedInstrument === "all" ||
-        book.instrument === selectedInstrument;
+        book.instrument.toLowerCase() === selectedInstrument.toLowerCase();
 
       const matchesSearch =
         term === "" ||
@@ -489,11 +557,14 @@ export default function StudentBooksPage() {
         (book.levelNumber?.toString().includes(term) ?? false) ||
         (book.seriesGroup?.toLowerCase().includes(term) ?? false) ||
         (book.tags?.some((t: string) => t.toLowerCase().includes(term)) ??
-          false);
+          false) ||
+        (book.categoryId
+          ? (catNameMap.get(book.categoryId as string) ?? "").includes(term)
+          : false);
 
       return matchesInstrument && matchesSearch;
     });
-  }, [allBooks, selectedInstrument, search]);
+  }, [allBooks, selectedInstrument, search, catNameMap]);
 
   // ── Build category groups — NO mutation of arrays, compute fresh each time ─
   const { visibleCategories, categorisedIds, uncategorisedBooks } =
@@ -586,7 +657,7 @@ export default function StudentBooksPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by title, instrument, description, tags…"
+            placeholder="Search by title, instrument, category, description, tags…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 w-full"
@@ -661,14 +732,7 @@ export default function StudentBooksPage() {
             >
               <AccordionTrigger className="px-5 py-4 hover:no-underline">
                 <div className="flex items-center gap-3">
-                  {category.icon && (
-                    <span
-                      className="text-2xl w-10 h-10 flex items-center justify-center rounded-lg shrink-0"
-                      style={{ background: `${category.color}20` }}
-                    >
-                      {category.icon}
-                    </span>
-                  )}
+                  <CategoryIcon icon={category.icon} color={category.color} />
                   <div className="text-left">
                     <div className="font-semibold">{category.name}</div>
                     {category.description && (
