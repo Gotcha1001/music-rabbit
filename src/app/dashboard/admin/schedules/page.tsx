@@ -273,7 +273,9 @@ export default function AdminSchedulesPage() {
       setDuration(30);
       setBookId("");
     } catch (error) {
-      toast.error("Failed to add lesson");
+      const msg =
+        error instanceof Error ? error.message : "Failed to add lesson";
+      toast.error(msg);
       console.error(error);
     }
   };
@@ -442,9 +444,15 @@ function BulkSchedulingSection() {
       setSelectedStudent(null);
       setSelectedTeacher(null);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to schedule";
-      toast.error(errorMessage);
+      const msg = error instanceof Error ? error.message : "Failed to schedule";
+      const clean = msg.includes("Cannot add lesson")
+        ? "⚠️ No active package — purchase or credit a package before scheduling this student."
+        : msg.includes("no active package")
+          ? "⚠️ No active package — purchase or credit a package before scheduling this student."
+          : msg.includes("Teacher timezone")
+            ? "⚠️ This teacher has no timezone set. Ask them to update their profile."
+            : "Failed to schedule. Please try again.";
+      toast.error(clean, { duration: 5000 });
     } finally {
       setIsSubmitting(false);
     }
