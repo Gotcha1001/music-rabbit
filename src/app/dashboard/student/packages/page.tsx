@@ -10,6 +10,72 @@ import { PACKAGE_DEFINITIONS } from "@/lib/packages";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
+/* ─────────────────────────────────────────────────────────────
+   !important overrides
+   Light = default  |  Dark = .dark prefix
+───────────────────────────────────────────────────────────── */
+const PKG_STYLES = `
+  /* Page */
+  .pkg-page                     { background: #ffffff !important; }
+  .dark .pkg-page               { background: linear-gradient(to bottom, #000000, #1a0030, #000000) !important; }
+
+  /* Heading */
+  .pkg-title                    { color: hsl(var(--foreground)) !important; }
+  .pkg-subtitle                 { color: hsl(var(--muted-foreground)) !important; }
+  .dark .pkg-title              { color: #ddd6fe !important; }
+  .dark .pkg-subtitle           { color: #c4b5fd !important; }
+
+  /* Active package banner */
+  .pkg-active-banner            { background: linear-gradient(to bottom right, #f0fdf4, #dcfce7) !important; border-color: #86efac !important; }
+  .pkg-active-banner-title      { color: #166534 !important; }
+  .pkg-active-banner-label      { color: #15803d !important; }
+  .pkg-active-banner-value      { color: #14532d !important; }
+  .dark .pkg-active-banner      { background: linear-gradient(to bottom right, #052e16, #064e3b) !important; border-color: #15803d !important; }
+  .dark .pkg-active-banner-title { color: #bbf7d0 !important; }
+  .dark .pkg-active-banner-label { color: #86efac !important; }
+  .dark .pkg-active-banner-value { color: #dcfce7 !important; }
+
+  /* Package cards — default */
+  .pkg-card                     { background: #ffffff !important; border-color: hsl(var(--border)) !important; box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important; }
+  .pkg-card-active              { background: linear-gradient(to bottom right, #f0fdf4, #dcfce7) !important; border-color: #22c55e !important; }
+  .dark .pkg-card               { background: linear-gradient(to bottom right, hsl(270 90% 5%), #000000) !important; border-color: rgba(109,40,217,0.5) !important; box-shadow: 0 0 30px rgba(139,92,246,0.15) !important; }
+  .dark .pkg-card-active        { background: linear-gradient(to bottom right, #052e16, #064e3b) !important; border-color: #15803d !important; }
+
+  /* Package card text */
+  .pkg-card-name                { color: hsl(var(--foreground)) !important; }
+  .pkg-card-price               { color: hsl(var(--foreground)) !important; }
+  .pkg-card-price-unit          { color: hsl(var(--muted-foreground)) !important; }
+  .pkg-card-desc                { color: hsl(var(--muted-foreground)) !important; }
+  .pkg-card-feature             { color: hsl(var(--foreground)) !important; }
+  .dark .pkg-card-name          { color: #ede9fe !important; }
+  .dark .pkg-card-price         { color: #ede9fe !important; }
+  .dark .pkg-card-price-unit    { color: #c4b5fd !important; }
+  .dark .pkg-card-desc          { color: #c4b5fd !important; }
+  .dark .pkg-card-feature       { color: #ddd6fe !important; }
+
+  /* Package icon circle */
+  .pkg-icon-circle              { background: hsl(var(--primary)) !important; color: #ffffff !important; }
+  .dark .pkg-icon-circle        { background: rgba(109,40,217,0.7) !important; color: #ede9fe !important; }
+
+  /* CTA button */
+  .pkg-btn                      { background: hsl(var(--primary)) !important; color: #ffffff !important; border: none !important; }
+  .pkg-btn:hover                { background: hsl(var(--primary)/0.9) !important; }
+  .pkg-btn-active               { background: #16a34a !important; color: #ffffff !important; }
+  .dark .pkg-btn                { background: linear-gradient(to right, #7c3aed, #6d28d9) !important; color: #ede9fe !important; }
+  .dark .pkg-btn:hover          { background: linear-gradient(to right, #6d28d9, #5b21b6) !important; }
+  .dark .pkg-btn-active         { background: #15803d !important; color: #dcfce7 !important; }
+
+  /* FAQ card */
+  .pkg-faq-card                 { background: #ffffff !important; border-color: hsl(var(--border)) !important; }
+  .pkg-faq-title                { color: hsl(var(--foreground)) !important; }
+  .pkg-faq-q                    { color: hsl(var(--foreground)) !important; }
+  .pkg-faq-a                    { color: hsl(var(--muted-foreground)) !important; }
+  .dark .pkg-faq-card           { background: linear-gradient(to bottom right, hsl(270 90% 5%), #000000) !important; border-color: rgba(109,40,217,0.5) !important; }
+  .dark .pkg-faq-title          { color: #ddd6fe !important; }
+  .dark .pkg-faq-q              { color: #ede9fe !important; }
+  .dark .pkg-faq-a              { color: #c4b5fd !important; }
+`;
+
 export default function StudentPackagesPage() {
   const currentUser = useQuery(api.users.get);
   const activePackage = useQuery(
@@ -22,32 +88,20 @@ export default function StudentPackagesPage() {
   );
 
   const [purchasing, setPurchasing] = useState<string | null>(null);
-  const processingRef = useRef(false); // ✅ Prevent double-clicks
+  const processingRef = useRef(false);
 
   const handlePurchase = async (pkg: (typeof PACKAGE_DEFINITIONS)[number]) => {
     if (!currentUser) {
       toast.error("Please log in first");
       return;
     }
+    if (processingRef.current) return;
+    if (purchasing) return;
 
-    // ✅ CRITICAL FIX: Prevent double-click with ref
-    if (processingRef.current) {
-      console.log("❌ Already processing payment, ignoring click");
-      return;
-    }
-
-    if (purchasing) {
-      console.log("❌ Purchase in progress, ignoring click");
-      return;
-    }
-
-    // Lock the process
     processingRef.current = true;
     setPurchasing(pkg.id);
 
     try {
-      console.log("🚀 Starting payment for package:", pkg.id);
-
       const response = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -60,22 +114,15 @@ export default function StudentPackagesPage() {
           studentId: currentUser._id,
         }),
       });
-
       const data = await response.json();
-      console.log("📦 Payment API response:", data);
-
       if (data.paymentUrl) {
-        console.log("✅ Redirecting to:", data.paymentUrl);
-        // Use window.location.href (not replace) for external redirect
         window.location.replace(data.paymentUrl);
-        // Don't reset state - let the redirect happen
       } else {
         toast.error(data.error || "Failed to create payment session");
         processingRef.current = false;
         setPurchasing(null);
       }
     } catch (error) {
-      console.error("❌ Payment error:", error);
       toast.error("Something went wrong. Please try again.");
       processingRef.current = false;
       setPurchasing(null);
@@ -90,70 +137,77 @@ export default function StudentPackagesPage() {
 
   if (!currentUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+      <div className="pkg-page flex min-h-screen items-center justify-center">
+        <style>{PKG_STYLES}</style>
+        <Loader2 className="h-8 w-8 animate-spin text-primary dark:text-purple-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black via-purple-950 to-black p-6">
+    <div className="pkg-page min-h-screen p-4 sm:p-6">
+      <style>{PKG_STYLES}</style>
       <div className="container mx-auto max-w-7xl">
+        {/* ── Heading ── */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-10 sm:mb-12"
         >
-          <h1 className="text-5xl font-bold text-purple-200 mb-4">
+          <h1 className="pkg-title text-3xl sm:text-5xl font-bold mb-4 font-serif">
             Choose Your Learning Package
           </h1>
-          <p className="text-xl text-purple-300">
+          <p className="pkg-subtitle text-base sm:text-xl">
             Select the perfect plan for your musical journey
           </p>
         </motion.div>
 
-        {/* Current Package Status */}
+        {/* ── Active package banner ── */}
         {activePackage && stats?.hasActivePackage && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mb-12"
+            className="mb-10 sm:mb-12"
           >
-            <Card className="bg-gradient-to-br from-green-950 to-emerald-900 border-green-700">
-              <CardHeader>
-                <CardTitle className="text-green-100 flex items-center gap-3">
-                  <Check className="h-6 w-6" />
+            <div className="pkg-active-banner rounded-xl border-2 overflow-hidden shadow-sm">
+              <div className="p-4 sm:p-6 border-b border-inherit">
+                <h2 className="pkg-active-banner-title flex items-center gap-3 text-lg sm:text-xl font-bold">
+                  <Check className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
                   Current Active Package
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-3 gap-4">
+                </h2>
+              </div>
+              <div className="p-4 sm:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <p className="text-green-200 text-sm">Package</p>
-                    <p className="text-2xl font-bold text-green-100">
+                    <p className="pkg-active-banner-label text-sm">Package</p>
+                    <p className="pkg-active-banner-value text-xl sm:text-2xl font-bold mt-1">
                       {activePackage.packageType}
                     </p>
                   </div>
                   <div>
-                    <p className="text-green-200 text-sm">Minutes Used</p>
-                    <p className="text-2xl font-bold text-green-100">
+                    <p className="pkg-active-banner-label text-sm">
+                      Minutes Used
+                    </p>
+                    <p className="pkg-active-banner-value text-xl sm:text-2xl font-bold mt-1">
                       {stats.minutesUsed} / {stats.totalMinutes}
                     </p>
                   </div>
                   <div>
-                    <p className="text-green-200 text-sm">Lessons Remaining</p>
-                    <p className="text-2xl font-bold text-green-100">
+                    <p className="pkg-active-banner-label text-sm">
+                      Lessons Remaining
+                    </p>
+                    <p className="pkg-active-banner-value text-xl sm:text-2xl font-bold mt-1">
                       {stats.lessonsRemaining}
                     </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* Package Options */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+        {/* ── Package cards ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-10 sm:mb-12">
           {PACKAGE_DEFINITIONS.map((pkg, index) => {
             const isActive = activePackage?.packageType === pkg.id;
             const isPopular = pkg.id === "20-twice";
@@ -166,127 +220,119 @@ export default function StudentPackagesPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card
-                  className={`relative overflow-hidden ${
-                    isActive
-                      ? "border-green-500 bg-gradient-to-br from-green-950 to-emerald-900"
-                      : "bg-gradient-to-br from-purple-950 to-black border-purple-800"
-                  }`}
+                <div
+                  className={`relative overflow-hidden rounded-xl border-2 shadow-sm ${isActive ? "pkg-card-active" : "pkg-card"}`}
                 >
+                  {/* Popular badge */}
                   {isPopular && (
-                    <div className="absolute top-0 right-0 bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-4 py-1 text-sm font-bold">
+                    <div className="absolute top-0 right-0 bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-4 py-1 text-xs sm:text-sm font-bold z-10">
                       MOST POPULAR
                     </div>
                   )}
-                  <CardHeader className="text-center space-y-4">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-purple-700 flex items-center justify-center text-purple-100">
+
+                  {/* Header */}
+                  <div className="p-5 sm:p-6 text-center space-y-3 sm:space-y-4 border-b border-inherit">
+                    <div className="pkg-icon-circle mx-auto w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center">
                       {getPackageIcon(pkg.id)}
                     </div>
-                    <CardTitle className="text-2xl text-purple-100">
+                    <h3 className="pkg-card-name text-xl sm:text-2xl font-bold font-serif">
                       {pkg.name}
-                    </CardTitle>
-                    <div className="text-center">
-                      <span className="text-5xl font-bold text-purple-100">
+                    </h3>
+                    <div>
+                      <span className="pkg-card-price text-4xl sm:text-5xl font-bold">
                         R{pkg.monthlyPrice.toFixed(2)}
                       </span>
-                      <span className="text-purple-300 text-lg">/month</span>
+                      <span className="pkg-card-price-unit text-base sm:text-lg">
+                        /month
+                      </span>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <p className="text-center text-purple-300 text-sm">
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-5 sm:p-6 space-y-4 sm:space-y-6">
+                    <p className="pkg-card-desc text-center text-sm">
                       {pkg.description}
                     </p>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-purple-200">
-                        <Check className="h-5 w-5 text-green-400" />
-                        <span>{pkg.minutesPerLesson} min per lesson</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-purple-200">
-                        <Check className="h-5 w-5 text-green-400" />
-                        <span>{pkg.lessonsPerWeek}x per week</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-purple-200">
-                        <Check className="h-5 w-5 text-green-400" />
-                        <span>{pkg.totalMinutesPerMonth} min/month total</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-purple-200">
-                        <Check className="h-5 w-5 text-green-400" />
-                        <span>Live Zoom lessons</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-purple-200">
-                        <Check className="h-5 w-5 text-green-400" />
-                        <span>Personal teacher</span>
-                      </div>
+
+                    <div className="space-y-2 sm:space-y-3">
+                      {[
+                        `${pkg.minutesPerLesson} min per lesson`,
+                        `${pkg.lessonsPerWeek}x per week`,
+                        `${pkg.totalMinutesPerMonth} min/month total`,
+                        "Live Zoom lessons",
+                        "Personal teacher",
+                      ].map((feature) => (
+                        <div key={feature} className="flex items-center gap-3">
+                          <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 shrink-0" />
+                          <span className="pkg-card-feature text-sm sm:text-base">
+                            {feature}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <Button
+
+                    <button
                       onClick={() => handlePurchase(pkg)}
                       disabled={isActive || !!purchasing}
-                      className={`w-full py-6 text-lg ${
-                        isActive
-                          ? "bg-green-600 hover:bg-green-700"
-                          : "bg-gradient-to-r from-purple-600 to-pink-600"
-                      }`}
+                      className={`w-full py-4 sm:py-5 text-base sm:text-lg rounded-lg font-semibold transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${isActive ? "pkg-btn-active" : "pkg-btn"}`}
                     >
                       {isProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-5 w-5 animate-spin" />
                           Processing...
-                        </>
+                        </span>
                       ) : isActive ? (
-                        <>
-                          <Check className="mr-2 h-5 w-5" />
+                        <span className="flex items-center justify-center gap-2">
+                          <Check className="h-5 w-5" />
                           Current Package
-                        </>
+                        </span>
                       ) : (
                         "Choose This Package"
                       )}
-                    </Button>
-                  </CardContent>
-                </Card>
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             );
           })}
         </div>
 
-        {/* FAQs */}
+        {/* ── FAQ ── */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          <Card className="bg-gradient-to-br from-purple-950 to-black border-purple-800">
-            <CardHeader>
-              <CardTitle className="text-purple-200">
+          <div className="pkg-faq-card rounded-xl border-2 overflow-hidden shadow-sm">
+            <div className="p-4 sm:p-6 border-b border-inherit">
+              <h2 className="pkg-faq-title text-lg sm:text-xl font-bold font-serif">
                 Frequently Asked Questions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-purple-300">
-              <div>
-                <p className="font-semibold text-purple-100">
-                  Can I change my package?
-                </p>
-                <p className="text-sm">
-                  Yes! You can upgrade or change your package at any time.
-                </p>
-              </div>
-              <div>
-                <p className="font-semibold text-purple-100">
-                  What happens if I miss a lesson?
-                </p>
-                <p className="text-sm">
-                  Your minutes are deducted only for completed lessons.
-                </p>
-              </div>
-              <div>
-                <p className="font-semibold text-purple-100">
-                  Is payment secure?
-                </p>
-                <p className="text-sm">
-                  Yes! All payments are processed securely through PayFast.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+              </h2>
+            </div>
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+              {[
+                {
+                  q: "Can I change my package?",
+                  a: "Yes! You can upgrade or change your package at any time.",
+                },
+                {
+                  q: "What happens if I miss a lesson?",
+                  a: "Your minutes are deducted only for completed lessons.",
+                },
+                {
+                  q: "Is payment secure?",
+                  a: "Yes! All payments are processed securely through PayFast.",
+                },
+              ].map(({ q, a }) => (
+                <div key={q}>
+                  <p className="pkg-faq-q font-semibold text-sm sm:text-base">
+                    {q}
+                  </p>
+                  <p className="pkg-faq-a text-sm mt-1">{a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </motion.div>
       </div>
     </div>

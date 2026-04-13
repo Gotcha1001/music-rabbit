@@ -505,3 +505,78 @@ export const assignNextInSeries = mutation({
     return { success: true, nextBook };
   },
 });
+
+// ────────────────────────────────────────────────
+// Set 1–3 books on a student profile (teacher/admin only)
+// ────────────────────────────────────────────────
+export const setStudentBooks = mutation({
+  args: {
+    studentId: v.id("users"),
+    currentBookId: v.optional(v.union(v.id("books"), v.null())),
+    subBookAId: v.optional(v.union(v.id("books"), v.null())),
+    subBookBId: v.optional(v.union(v.id("books"), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!caller || (caller.role !== "teacher" && caller.role !== "admin")) {
+      throw new Error("Only teachers or admins can set student books");
+    }
+
+    const student = await ctx.db.get(args.studentId);
+    if (!student || student.role !== "student") {
+      throw new Error("Invalid student");
+    }
+
+    const patch: Record<string, string | null | undefined> = {};
+
+    // Allow explicit null to clear a slot
+    if ("currentBookId" in args)
+      patch.currentBookId = args.currentBookId ?? undefined;
+    if ("subBookAId" in args) patch.subBookAId = args.subBookAId ?? undefined;
+    if ("subBookBId" in args) patch.subBookBId = args.subBookBId ?? undefined;
+
+    await ctx.db.patch(args.studentId, patch);
+    return { success: true };
+  },
+});
+
+// convex/users.ts — add this after setStudentBooks
+
+export const updateStudentBooks = mutation({
+  args: {
+    studentId: v.id("users"),
+    field: v.union(v.literal("subBookAId"), v.literal("subBookBId")),
+    bookId: v.union(v.id("books"), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!caller || (caller.role !== "teacher" && caller.role !== "admin")) {
+      throw new Error("Only teachers or admins can set student books");
+    }
+
+    const student = await ctx.db.get(args.studentId);
+    if (!student || student.role !== "student") {
+      throw new Error("Invalid student");
+    }
+
+    await ctx.db.patch(args.studentId, {
+      [args.field]: args.bookId ?? undefined,
+    });
+
+    return { success: true };
+  },
+});

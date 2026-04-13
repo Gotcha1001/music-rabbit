@@ -1,415 +1,3 @@
-// "use client";
-
-// import { useState } from "react";
-// import { useQuery, useMutation } from "convex/react";
-// import { api } from "../../../../convex/_generated/api";
-// import { Id } from "../../../../convex/_generated/dataModel";
-// import { useUserDetail } from "@/context/UserDetailContext";
-// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-// import { Button } from "@/components/ui/button";
-// import { Textarea } from "@/components/ui/textarea";
-// import { Badge } from "@/components/ui/badge";
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogDescription,
-//   DialogFooter,
-//   DialogHeader,
-//   DialogTitle,
-// } from "@/components/ui/dialog";
-// import { Heart, Send, Smile, ArrowLeft } from "lucide-react";
-// import { format } from "date-fns";
-// import { toast } from "sonner";
-// import { useRouter } from "next/navigation";
-
-// const EMOJI_OPTIONS = ["❤️", "🙏", "😊", "⭐", "🎵", "💯", "👏", "🌟"];
-
-// export default function ThanksMessagesPage() {
-//   const { userDetail } = useUserDetail();
-//   const router = useRouter();
-//   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
-//   const [responseEmoji, setResponseEmoji] = useState<string>("");
-//   const [responseText, setResponseText] = useState<string>("");
-//   const [isResponding, setIsResponding] = useState(false);
-
-//   const messages = useQuery(
-//     api.thankYouMessages.getForTeacher,
-//     userDetail?.role === "teacher" && userDetail?._id
-//       ? { teacherId: userDetail._id, limit: 50 }
-//       : "skip",
-//   );
-
-//   const respond = useMutation(api.thankYouMessages.respond);
-//   const markAsRead = useMutation(api.thankYouMessages.markAsRead);
-
-//   if (!userDetail) {
-//     return (
-//       <div className="flex items-center justify-center min-h-screen">
-//         <div className="text-center">
-//           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
-//           <p className="text-muted-foreground">Loading...</p>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   if (userDetail.role !== "teacher") {
-//     return (
-//       <div className="flex items-center justify-center min-h-screen">
-//         <div className="text-center">
-//           <Heart className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-//           <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-//           <p className="text-muted-foreground">
-//             Only teachers can view thank you messages
-//           </p>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   const handleQuickEmoji = async (
-//     messageId: Id<"thankYouMessages">,
-//     emoji: string,
-//   ) => {
-//     try {
-//       await respond({ messageId, emoji });
-//       toast.success("Response sent! " + emoji);
-//     } catch (error) {
-//       console.error("Error sending emoji:", error);
-//       toast.error("Failed to send response");
-//     }
-//   };
-
-//   const handleOpenResponse = async (messageId: Id<"thankYouMessages">) => {
-//     setSelectedMessage(messageId);
-//     setResponseEmoji("");
-//     setResponseText("");
-//     try {
-//       await markAsRead({ messageId });
-//     } catch (error) {
-//       console.error("Error marking as read:", error);
-//     }
-//   };
-
-//   const handleSendResponse = async () => {
-//     if (!selectedMessage || (!responseEmoji && !responseText.trim())) {
-//       toast.error("Please select an emoji or write a message");
-//       return;
-//     }
-
-//     setIsResponding(true);
-//     try {
-//       await respond({
-//         messageId: selectedMessage as Id<"thankYouMessages">,
-//         emoji: responseEmoji || undefined,
-//         message: responseText.trim() || undefined,
-//       });
-
-//       toast.success("Response sent! 💝");
-//       setSelectedMessage(null);
-//       setResponseEmoji("");
-//       setResponseText("");
-//     } catch (error) {
-//       console.error("Error sending response:", error);
-//       toast.error("Failed to send response");
-//     } finally {
-//       setIsResponding(false);
-//     }
-//   };
-
-//   const pageContent = (
-//     <>
-//       {/* Back button — matches pattern used across other dashboard pages */}
-//       <div className="container mx-auto px-4 pt-6 relative z-10">
-//         <Button
-//           variant="ghost"
-//           onClick={() => router.back()}
-//           className="text-purple-300 hover:text-purple-100 hover:bg-purple-900/30 -ml-2 mb-2"
-//         >
-//           <ArrowLeft className="mr-2 h-4 w-4" />
-//           Back
-//         </Button>
-//       </div>
-
-//       <div className="container mx-auto px-4 pb-12 relative z-10">
-//         <div className="max-w-4xl mx-auto">
-//           {/* Header */}
-//           <div className="text-center mb-8">
-//             <h1 className="text-4xl font-bold mb-2">Thanks Messages</h1>
-//           </div>
-
-//           {!messages || messages.length === 0 ? (
-//             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-12 border-2 border-gray-100 dark:border-gray-700 text-center">
-//               <Heart className="h-16 w-16 mx-auto mb-4 text-pink-300 animate-pulse" />
-//               <p className="text-xl text-muted-foreground mb-2">
-//                 No thank you messages yet
-//               </p>
-//               <p className="text-sm text-muted-foreground">
-//                 Your students will be able to send you thank you messages after
-//                 lessons
-//               </p>
-//             </div>
-//           ) : (
-//             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border-2 border-gray-100 dark:border-gray-700">
-//               <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-//                 {messages.map((msg) => (
-//                   <div
-//                     key={msg._id}
-//                     className={`border-2 rounded-xl p-6 transition-all ${
-//                       !msg.isRead
-//                         ? "bg-pink-50 dark:bg-pink-900/10 border-pink-200 dark:border-pink-700"
-//                         : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-//                     }`}
-//                   >
-//                     <div className="flex items-start gap-4 mb-4">
-//                       <Avatar className="h-14 w-14 border-2 border-white shadow-md">
-//                         <AvatarImage src={msg.studentImage} />
-//                         <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white text-lg font-bold">
-//                           {msg.studentName?.charAt(0) || "S"}
-//                         </AvatarFallback>
-//                       </Avatar>
-//                       <div className="flex-1">
-//                         <div className="flex items-center justify-between mb-2">
-//                           <div>
-//                             <h3 className="font-bold text-lg">
-//                               {msg.studentName}
-//                             </h3>
-//                             <p className="text-sm text-muted-foreground">
-//                               {msg.studentName?.split(" ")[1] || "Student"}@
-//                             </p>
-//                           </div>
-//                           <div className="text-right">
-//                             <p className="text-sm font-medium">
-//                               {msg.lessonDate
-//                                 ? format(new Date(msg.lessonDate), "yyyy.MM.dd")
-//                                 : ""}
-//                             </p>
-//                             {!msg.isRead && (
-//                               <Badge className="bg-pink-500 text-white mt-1">
-//                                 New
-//                               </Badge>
-//                             )}
-//                           </div>
-//                         </div>
-
-//                         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 mb-3">
-//                           <p className="text-gray-700 dark:text-gray-300">
-//                             {msg.message}
-//                           </p>
-//                         </div>
-
-//                         {msg.teacherResponse ? (
-//                           <div className="bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4 border-2 border-purple-200 dark:border-purple-700">
-//                             <div className="flex items-start gap-3">
-//                               <Avatar className="h-10 w-10 border-2 border-white">
-//                                 <AvatarImage src={userDetail.imageUrl} />
-//                                 <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-400 text-white font-bold">
-//                                   {userDetail.name?.charAt(0) || "T"}
-//                                 </AvatarFallback>
-//                               </Avatar>
-//                               <div className="flex-1">
-//                                 <div className="flex items-center gap-2 mb-1">
-//                                   <p className="font-medium text-sm">
-//                                     {userDetail.name || "Teacher"}
-//                                   </p>
-//                                   <Badge
-//                                     variant="secondary"
-//                                     className="text-xs bg-green-100 text-green-700 dark:bg-green-900/20"
-//                                   >
-//                                     ✓{" "}
-//                                     {format(
-//                                       new Date(msg.teacherResponse.timestamp),
-//                                       "yyyy-MM-dd HH:mm:ss",
-//                                     )}
-//                                   </Badge>
-//                                 </div>
-//                                 <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-//                                   {msg.teacherResponse.emoji && (
-//                                     <div className="text-3xl mb-2">
-//                                       {msg.teacherResponse.emoji}
-//                                     </div>
-//                                   )}
-//                                   {msg.teacherResponse.message && (
-//                                     <p className="text-sm text-gray-700 dark:text-gray-300">
-//                                       {msg.teacherResponse.message}
-//                                     </p>
-//                                   )}
-//                                 </div>
-//                               </div>
-//                             </div>
-//                           </div>
-//                         ) : (
-//                           <div className="flex flex-wrap gap-2">
-//                             {EMOJI_OPTIONS.map((emoji) => (
-//                               <Button
-//                                 key={emoji}
-//                                 variant="outline"
-//                                 size="sm"
-//                                 onClick={() => handleQuickEmoji(msg._id, emoji)}
-//                                 className="text-2xl hover:scale-110 transition-transform hover:bg-pink-50 dark:hover:bg-pink-900/20"
-//                               >
-//                                 {emoji}
-//                               </Button>
-//                             ))}
-//                             <Button
-//                               variant="default"
-//                               size="sm"
-//                               onClick={() => handleOpenResponse(msg._id)}
-//                               className="ml-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-//                             >
-//                               <Send className="h-4 w-4 mr-2" />
-//                               Write Response
-//                             </Button>
-//                           </div>
-//                         )}
-//                       </div>
-//                     </div>
-//                   </div>
-//                 ))}
-//               </div>
-//             </div>
-//           )}
-//         </div>
-//       </div>
-//     </>
-//   );
-
-//   return (
-//     <>
-//       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-//         {/* Decorative balloons background */}
-//         <div className="fixed inset-0 overflow-hidden pointer-events-none">
-//           <div className="absolute top-20 left-10 w-16 h-20 bg-green-400 rounded-full opacity-30 animate-float"></div>
-//           <div className="absolute top-40 left-32 w-20 h-24 bg-yellow-400 rounded-full opacity-30 animate-float-delay-1"></div>
-//           <div className="absolute top-32 right-20 w-18 h-22 bg-red-400 rounded-full opacity-30 animate-float-delay-2"></div>
-//           <div className="absolute top-60 right-40 w-14 h-18 bg-blue-400 rounded-full opacity-30 animate-float"></div>
-//           <div className="absolute top-10 right-60 w-12 h-16 bg-purple-400 rounded-full opacity-30 animate-float-delay-1"></div>
-//           <div className="absolute top-80 left-1/4 w-10 h-14 bg-orange-400 rounded-full opacity-30 animate-float-delay-2"></div>
-//           <div className="absolute top-40 left-1/3 w-2 h-2 bg-red-400 rounded-full opacity-40"></div>
-//           <div className="absolute top-32 right-1/3 w-2 h-2 bg-blue-400 rounded-full opacity-40"></div>
-//           <div className="absolute top-60 left-1/2 w-2 h-2 bg-green-400 rounded-full opacity-40"></div>
-//           <div className="absolute top-20 right-1/4 w-2 h-2 bg-yellow-400 rounded-full opacity-40"></div>
-//           <div className="absolute top-50 left-2/3 w-2 h-2 bg-purple-400 rounded-full opacity-40"></div>
-//         </div>
-
-//         {pageContent}
-//       </div>
-
-//       {/* Response Dialog */}
-//       <Dialog
-//         open={!!selectedMessage}
-//         onOpenChange={() => setSelectedMessage(null)}
-//       >
-//         <DialogContent className="sm:max-w-[500px]">
-//           <DialogHeader>
-//             <DialogTitle className="flex items-center gap-2">
-//               <Smile className="h-5 w-5 text-purple-500" />
-//               Respond to Thank You
-//             </DialogTitle>
-//             <DialogDescription>
-//               Send an emoji or write a message back to your student
-//             </DialogDescription>
-//           </DialogHeader>
-
-//           <div className="space-y-4 py-4">
-//             <div>
-//               <label className="text-sm font-medium mb-2 block">
-//                 Choose an emoji
-//               </label>
-//               <div className="flex flex-wrap gap-2">
-//                 {EMOJI_OPTIONS.map((emoji) => (
-//                   <Button
-//                     key={emoji}
-//                     variant={responseEmoji === emoji ? "default" : "outline"}
-//                     size="lg"
-//                     onClick={() =>
-//                       setResponseEmoji(responseEmoji === emoji ? "" : emoji)
-//                     }
-//                     className="text-2xl"
-//                   >
-//                     {emoji}
-//                   </Button>
-//                 ))}
-//               </div>
-//             </div>
-
-//             <div>
-//               <label className="text-sm font-medium mb-2 block">
-//                 Add a message (optional)
-//               </label>
-//               <Textarea
-//                 placeholder="No worries, thanks for letting me know, have a beautiful rest of the week!"
-//                 value={responseText}
-//                 onChange={(e) => setResponseText(e.target.value)}
-//                 className="min-h-[120px] resize-none"
-//                 maxLength={300}
-//               />
-//               <p className="text-xs text-muted-foreground mt-1 text-right">
-//                 {responseText.length}/300 characters
-//               </p>
-//             </div>
-//           </div>
-
-//           <DialogFooter>
-//             <Button
-//               variant="outline"
-//               onClick={() => setSelectedMessage(null)}
-//               disabled={isResponding}
-//             >
-//               Cancel
-//             </Button>
-//             <Button
-//               onClick={handleSendResponse}
-//               disabled={
-//                 (!responseEmoji && !responseText.trim()) || isResponding
-//               }
-//               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-//             >
-//               {isResponding ? (
-//                 <>
-//                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-//                   Sending...
-//                 </>
-//               ) : (
-//                 <>
-//                   <Send className="h-4 w-4 mr-2" />
-//                   Send Response
-//                 </>
-//               )}
-//             </Button>
-//           </DialogFooter>
-//         </DialogContent>
-//       </Dialog>
-
-//       <style jsx global>{`
-//         @keyframes float {
-//           0%,
-//           100% {
-//             transform: translateY(0px) rotate(0deg);
-//           }
-//           50% {
-//             transform: translateY(-20px) rotate(5deg);
-//           }
-//         }
-
-//         .animate-float {
-//           animation: float 6s ease-in-out infinite;
-//         }
-
-//         .animate-float-delay-1 {
-//           animation: float 7s ease-in-out infinite;
-//           animation-delay: -2s;
-//         }
-
-//         .animate-float-delay-2 {
-//           animation: float 8s ease-in-out infinite;
-//           animation-delay: -4s;
-//         }
-//       `}</style>
-//     </>
-//   );
-// }
-// app/dashboard/thanks-messages/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -435,6 +23,104 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
+/* ─────────────────────────────────────────────────────────────
+   !important overrides
+   Light = default  |  Dark = .dark prefix
+───────────────────────────────────────────────────────────── */
+const THANKS_STYLES = `
+  /* Page background */
+  .ty-page                        { background: #ffffff !important; }
+  .dark .ty-page                  { background: linear-gradient(140deg, #0a0014 0%, #190028 45%, #0d001f 75%, #130020 100%) !important; }
+
+  /* Back button */
+  .ty-back-btn                    { color: hsl(var(--primary)) !important; }
+  .ty-back-btn:hover              { color: hsl(var(--primary)/0.8) !important; background: hsl(var(--primary)/0.08) !important; }
+  .dark .ty-back-btn              { color: #f9a8d4 !important; }
+  .dark .ty-back-btn:hover        { color: #ffffff !important; background: rgba(255,255,255,0.1) !important; }
+
+  /* Subtitle count */
+  .ty-count                       { color: hsl(var(--muted-foreground)) !important; }
+  .dark .ty-count                 { color: rgba(249,168,212,0.6) !important; }
+
+  /* Message cards — unread */
+  .ty-card-unread                 { background: linear-gradient(135deg, rgba(236,72,153,0.06) 0%, rgba(168,85,247,0.04) 100%) !important; border-color: rgba(236,72,153,0.25) !important; box-shadow: 0 4px 20px rgba(236,72,153,0.08) !important; }
+  .dark .ty-card-unread           { background: linear-gradient(135deg, rgba(255,107,157,0.11) 0%, rgba(196,77,255,0.07) 100%) !important; border-color: rgba(255,107,157,0.32) !important; box-shadow: 0 4px 28px rgba(255,107,157,0.1) !important; }
+
+  /* Message cards — read */
+  .ty-card-read                   { background: #ffffff !important; border-color: hsl(var(--border)) !important; box-shadow: 0 2px 12px rgba(0,0,0,0.07) !important; }
+  .dark .ty-card-read             { background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%) !important; border-color: rgba(255,255,255,0.07) !important; box-shadow: 0 4px 20px rgba(0,0,0,0.28) !important; }
+
+  /* Student name */
+  .ty-student-name                { color: hsl(var(--foreground)) !important; }
+  .dark .ty-student-name          { color: #ffffff !important; }
+
+  /* Lesson date */
+  .ty-lesson-date                 { color: hsl(var(--muted-foreground)) !important; }
+  .dark .ty-lesson-date           { color: rgba(255,255,255,0.35) !important; }
+
+  /* Message bubble */
+  .ty-msg-bubble                  { background: hsl(var(--muted)) !important; border-color: hsl(var(--border)) !important; }
+  .dark .ty-msg-bubble            { background: rgba(255,255,255,0.055) !important; border-color: rgba(255,255,255,0.09) !important; }
+
+  .ty-msg-text                    { color: hsl(var(--foreground)) !important; }
+  .dark .ty-msg-text              { color: rgba(255,255,255,0.82) !important; }
+
+  /* Response box */
+  .ty-response-box                { background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(236,72,153,0.06)) !important; border-color: rgba(168,85,247,0.2) !important; }
+  .dark .ty-response-box          { background: linear-gradient(135deg, rgba(196,77,255,0.13), rgba(255,107,157,0.09)) !important; border-color: rgba(196,77,255,0.28) !important; }
+
+  .ty-response-name               { color: hsl(var(--primary)) !important; }
+  .dark .ty-response-name         { color: #c084fc !important; }
+
+  .ty-response-time               { color: hsl(var(--muted-foreground)) !important; }
+  .dark .ty-response-time         { color: rgba(255,255,255,0.28) !important; }
+
+  .ty-response-text               { color: hsl(var(--foreground)) !important; }
+  .dark .ty-response-text         { color: rgba(255,255,255,0.72) !important; }
+
+  /* Quick emoji buttons */
+  .ty-emoji-btn                   { background: hsl(var(--muted)) !important; border-color: hsl(var(--border)) !important; }
+  .ty-emoji-btn:hover             { background: hsl(var(--muted)/0.7) !important; }
+  .dark .ty-emoji-btn             { background: rgba(255,255,255,0.055) !important; border-color: rgba(255,255,255,0.1) !important; }
+
+  /* Empty state */
+  .ty-empty                       { background: linear-gradient(135deg, rgba(236,72,153,0.05) 0%, rgba(168,85,247,0.05) 100%) !important; border-color: rgba(236,72,153,0.15) !important; }
+  .dark .ty-empty                 { background: linear-gradient(135deg, rgba(255,107,157,0.07) 0%, rgba(196,77,255,0.07) 100%) !important; border-color: rgba(255,107,157,0.18) !important; }
+
+  .ty-empty-title                 { color: hsl(var(--foreground)) !important; }
+  .ty-empty-sub                   { color: hsl(var(--muted-foreground)) !important; }
+  .dark .ty-empty-title           { color: rgba(255,255,255,0.7) !important; }
+  .dark .ty-empty-sub             { color: rgba(255,255,255,0.35) !important; }
+
+  /* Dialog */
+  .ty-dialog                      { background: #ffffff !important; border-color: hsl(var(--border)) !important; }
+  .dark .ty-dialog                { background: linear-gradient(140deg, #1a0030 0%, #0d001f 100%) !important; border-color: rgba(196,77,255,0.28) !important; }
+
+  .ty-dialog-title                { color: hsl(var(--foreground)) !important; }
+  .dark .ty-dialog-title          { color: #ffffff !important; }
+
+  .ty-dialog-desc                 { color: hsl(var(--muted-foreground)) !important; }
+  .dark .ty-dialog-desc           { color: rgba(255,255,255,0.45) !important; }
+
+  .ty-dialog-label                { color: hsl(var(--muted-foreground)) !important; }
+  .dark .ty-dialog-label          { color: rgba(255,255,255,0.65) !important; }
+
+  .ty-dialog-textarea             { background: hsl(var(--muted)) !important; border-color: hsl(var(--border)) !important; color: hsl(var(--foreground)) !important; }
+  .dark .ty-dialog-textarea       { background: rgba(255,255,255,0.055) !important; border-color: rgba(255,255,255,0.1) !important; color: #ffffff !important; }
+
+  .ty-dialog-count                { color: hsl(var(--muted-foreground)) !important; }
+  .dark .ty-dialog-count          { color: rgba(255,255,255,0.28) !important; }
+
+  .ty-dialog-cancel               { color: hsl(var(--muted-foreground)) !important; }
+  .ty-dialog-cancel:hover         { color: hsl(var(--foreground)) !important; background: hsl(var(--muted)) !important; }
+  .dark .ty-dialog-cancel         { color: rgba(255,255,255,0.55) !important; }
+  .dark .ty-dialog-cancel:hover   { color: #ffffff !important; background: rgba(255,255,255,0.1) !important; }
+
+  /* Unread dot border */
+  .ty-unread-dot                  { border-color: #ffffff !important; }
+  .dark .ty-unread-dot            { border-color: #0a0014 !important; }
+`;
+
 const EMOJI_OPTIONS = ["❤️", "🙏", "😊", "⭐", "🎵", "💯", "👏", "🌟"];
 const CONFETTI_COLORS = [
   "#ff6b9d",
@@ -447,7 +133,6 @@ const CONFETTI_COLORS = [
   "#fed6e3",
 ];
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 type Particle = {
   id: number;
   x: number;
@@ -471,7 +156,6 @@ type Confetto = {
   shape: "rect" | "circle";
 };
 
-// ── Confetti burst ────────────────────────────────────────────────────────────
 function makeConfetti(): Confetto[] {
   return Array.from({ length: 55 }, (_, i) => ({
     id: i,
@@ -514,7 +198,6 @@ function ConfettiBurst() {
   );
 }
 
-// ── Floating background particles ─────────────────────────────────────────────
 function makeParticles(): Particle[] {
   return Array.from({ length: 26 }, (_, i) => ({
     id: i,
@@ -529,8 +212,28 @@ function makeParticles(): Particle[] {
   }));
 }
 
+/* Light mode: vivid saturated colors at higher opacity.
+   Dark mode: same colors but dimmer (original feel). */
+const PARTICLE_COLORS_LIGHT = {
+  heart: "#e11d74",
+  star: "#d97706",
+  note: "#7c3aed",
+};
+const PARTICLE_COLORS_DARK = {
+  heart: "#ff6b9d",
+  star: "#ffd166",
+  note: "#c44dff",
+};
+
 function FloatingParticles() {
   const [particles] = useState<Particle[]>(makeParticles);
+  // Detect dark mode at render time
+  const isDark =
+    typeof window !== "undefined" &&
+    document.documentElement.classList.contains("dark");
+  const colors = isDark ? PARTICLE_COLORS_DARK : PARTICLE_COLORS_LIGHT;
+  // Light mode uses higher opacity so they show against white
+  const opacityMultiplier = isDark ? 1 : 3.5;
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -542,13 +245,8 @@ function FloatingParticles() {
             left: `${p.x}%`,
             top: `${p.y}%`,
             fontSize: p.size,
-            opacity: p.opacity,
-            color:
-              p.type === "heart"
-                ? "#ff6b9d"
-                : p.type === "star"
-                  ? "#ffd166"
-                  : "#c44dff",
+            opacity: Math.min(p.opacity * opacityMultiplier, 0.55),
+            color: colors[p.type],
             userSelect: "none",
             lineHeight: 1,
           }}
@@ -572,7 +270,6 @@ function FloatingParticles() {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ThanksMessagesPage() {
   const { userDetail } = useUserDetail();
   const router = useRouter();
@@ -598,15 +295,13 @@ export default function ThanksMessagesPage() {
 
   if (!userDetail) {
     return (
-      <div
-        className="flex items-center justify-center min-h-screen"
-        style={{ background: "#0a0014" }}
-      >
+      <div className="ty-page flex items-center justify-center min-h-screen">
+        <style>{THANKS_STYLES}</style>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
         >
-          <Heart className="h-8 w-8 text-pink-400" />
+          <Heart className="h-8 w-8 text-pink-500" />
         </motion.div>
       </div>
     );
@@ -614,12 +309,10 @@ export default function ThanksMessagesPage() {
 
   if (userDetail.role !== "teacher") {
     return (
-      <div
-        className="flex items-center justify-center min-h-screen"
-        style={{ background: "#0a0014" }}
-      >
-        <div className="text-center text-white">
-          <Heart className="h-16 w-16 mx-auto mb-4 text-pink-300" />
+      <div className="ty-page flex items-center justify-center min-h-screen">
+        <style>{THANKS_STYLES}</style>
+        <div className="text-center">
+          <Heart className="h-16 w-16 mx-auto mb-4 text-pink-400" />
           <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
         </div>
       </div>
@@ -674,17 +367,12 @@ export default function ThanksMessagesPage() {
 
   return (
     <>
+      <style>{THANKS_STYLES}</style>
       <AnimatePresence>{showConfetti && <ConfettiBurst />}</AnimatePresence>
 
-      <div
-        className="min-h-screen relative overflow-hidden"
-        style={{
-          background:
-            "linear-gradient(140deg, #0a0014 0%, #190028 45%, #0d001f 75%, #130020 100%)",
-        }}
-      >
-        {/* Glow blobs */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+      <div className="ty-page min-h-screen relative overflow-hidden">
+        {/* Dark mode glow blobs — hidden in light mode via opacity */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden dark:block hidden">
           <motion.div
             animate={{ scale: [1, 1.18, 1], opacity: [0.12, 0.22, 0.12] }}
             transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
@@ -720,10 +408,8 @@ export default function ThanksMessagesPage() {
           />
         </div>
 
-        {/* Floating hearts/stars/notes */}
         <FloatingParticles />
 
-        {/* Page content */}
         <div className="relative z-10 container mx-auto px-4 pt-6 pb-16 max-w-4xl">
           {/* Back */}
           <motion.div
@@ -731,14 +417,13 @@ export default function ThanksMessagesPage() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <Button
-              variant="ghost"
+            <button
               onClick={() => router.back()}
-              className="text-pink-300 hover:text-white hover:bg-white/10 -ml-2 mb-6 group"
+              className="ty-back-btn flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 -ml-2 mb-6 group"
             >
-              <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
               Back
-            </Button>
+            </button>
           </motion.div>
 
           {/* Header */}
@@ -746,9 +431,9 @@ export default function ThanksMessagesPage() {
             initial={{ opacity: 0, y: -24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.1 }}
-            className="text-center mb-12"
+            className="text-center mb-10 sm:mb-12"
           >
-            <div className="flex items-center justify-center gap-3 mb-2">
+            <div className="flex items-center justify-center gap-3 mb-2 flex-wrap">
               <motion.span
                 animate={{ scale: [1, 1.22, 1], rotate: [0, -12, 12, 0] }}
                 transition={{
@@ -756,13 +441,12 @@ export default function ThanksMessagesPage() {
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
-                className="text-4xl select-none"
+                className="text-3xl sm:text-4xl select-none"
               >
                 💝
               </motion.span>
-
               <h1
-                className="text-5xl font-black tracking-tight"
+                className="text-4xl sm:text-5xl font-black tracking-tight"
                 style={{
                   background:
                     "linear-gradient(125deg, #ff6b9d 0%, #c44dff 55%, #ffd166 100%)",
@@ -773,7 +457,6 @@ export default function ThanksMessagesPage() {
               >
                 Thanks Messages
               </h1>
-
               <motion.span
                 animate={{ scale: [1, 1.22, 1], rotate: [0, 12, -12, 0] }}
                 transition={{
@@ -782,7 +465,7 @@ export default function ThanksMessagesPage() {
                   ease: "easeInOut",
                   delay: 0.6,
                 }}
-                className="text-4xl select-none"
+                className="text-3xl sm:text-4xl select-none"
               >
                 ✨
               </motion.span>
@@ -792,7 +475,7 @@ export default function ThanksMessagesPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
-                className="text-pink-300/60 text-sm mt-1"
+                className="ty-count text-xs sm:text-sm mt-1"
               >
                 {messages.length} message{messages.length !== 1 ? "s" : ""} from
                 your students
@@ -806,14 +489,7 @@ export default function ThanksMessagesPage() {
               initial={{ opacity: 0, scale: 0.93 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.55, delay: 0.2 }}
-              className="text-center py-20"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(255,107,157,0.07) 0%, rgba(196,77,255,0.07) 100%)",
-                border: "1px solid rgba(255,107,157,0.18)",
-                borderRadius: "24px",
-                backdropFilter: "blur(20px)",
-              }}
+              className="ty-empty text-center py-16 sm:py-20 border rounded-3xl backdrop-blur-xl"
             >
               <motion.div
                 animate={{
@@ -829,18 +505,24 @@ export default function ThanksMessagesPage() {
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
-                className="text-7xl mb-6 select-none"
+                className="text-6xl sm:text-7xl mb-6 select-none"
               >
                 💌
               </motion.div>
-              <p className="text-xl font-semibold text-white/70 mb-2">
+              <p className="ty-empty-title text-lg sm:text-xl font-semibold mb-2">
                 No messages yet
               </p>
-              <p className="text-sm text-white/35">
+              <p className="ty-empty-sub text-sm">
                 Your students will send you love after lessons
               </p>
-              <div className="flex justify-center gap-4 mt-8">
-                {["❤️", "💜", "💛", "💚", "💙"].map((h, i) => (
+              <div className="flex justify-center gap-3 sm:gap-4 mt-8">
+                {[
+                  { symbol: "♥", color: "#e11d74" },
+                  { symbol: "♥", color: "#7c3aed" },
+                  { symbol: "♥", color: "#d97706" },
+                  { symbol: "♥", color: "#16a34a" },
+                  { symbol: "♥", color: "#2563eb" },
+                ].map((h, i) => (
                   <motion.span
                     key={i}
                     animate={{ y: [0, -9, 0] }}
@@ -850,15 +532,16 @@ export default function ThanksMessagesPage() {
                       repeat: Infinity,
                       ease: "easeInOut",
                     }}
-                    className="text-xl opacity-40 select-none"
+                    className="text-xl select-none"
+                    style={{ color: h.color, opacity: 0.85 }}
                   >
-                    {h}
+                    {h.symbol}
                   </motion.span>
                 ))}
               </div>
             </motion.div>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
               {messages.map((msg, index) => (
                 <motion.div
                   key={msg._id}
@@ -866,25 +549,12 @@ export default function ThanksMessagesPage() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.45, delay: index * 0.06 }}
                   whileHover={{ y: -3, transition: { duration: 0.2 } }}
-                  style={{
-                    background: !msg.isRead
-                      ? "linear-gradient(135deg, rgba(255,107,157,0.11) 0%, rgba(196,77,255,0.07) 100%)"
-                      : "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)",
-                    border: !msg.isRead
-                      ? "1px solid rgba(255,107,157,0.32)"
-                      : "1px solid rgba(255,255,255,0.07)",
-                    borderRadius: "20px",
-                    backdropFilter: "blur(16px)",
-                    boxShadow: !msg.isRead
-                      ? "0 4px 28px rgba(255,107,157,0.1)"
-                      : "0 4px 20px rgba(0,0,0,0.28)",
-                  }}
-                  className="p-6"
+                  className={`${!msg.isRead ? "ty-card-unread" : "ty-card-read"} border rounded-2xl sm:rounded-[20px] p-4 sm:p-6 backdrop-blur-sm`}
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3 sm:gap-4">
                     {/* Avatar */}
                     <div className="relative shrink-0">
-                      <Avatar className="h-14 w-14 ring-2 ring-pink-500/35 ring-offset-2 ring-offset-transparent">
+                      <Avatar className="h-12 w-12 sm:h-14 sm:w-14 ring-2 ring-pink-500/35 ring-offset-2 ring-offset-transparent">
                         <AvatarImage src={msg.studentImage} />
                         <AvatarFallback
                           style={{
@@ -900,20 +570,19 @@ export default function ThanksMessagesPage() {
                         <motion.div
                           animate={{ scale: [1, 1.35, 1] }}
                           transition={{ duration: 1.6, repeat: Infinity }}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-pink-500 rounded-full border-2"
-                          style={{ borderColor: "#0a0014" }}
+                          className="ty-unread-dot absolute -top-1 -right-1 w-4 h-4 bg-pink-500 rounded-full border-2"
                         />
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       {/* Name + date */}
-                      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2 flex-wrap">
                         <div>
-                          <h3 className="font-bold text-white">
+                          <h3 className="ty-student-name font-bold text-sm sm:text-base">
                             {msg.studentName}
                           </h3>
-                          <p className="text-xs text-white/35 mt-0.5">
+                          <p className="ty-lesson-date text-xs mt-0.5">
                             {msg.lessonDate
                               ? format(new Date(msg.lessonDate), "MMMM d, yyyy")
                               : ""}
@@ -933,33 +602,21 @@ export default function ThanksMessagesPage() {
                       </div>
 
                       {/* Message bubble */}
-                      <div
-                        className="rounded-2xl p-4 mb-4"
-                        style={{
-                          background: "rgba(255,255,255,0.055)",
-                          border: "1px solid rgba(255,255,255,0.09)",
-                        }}
-                      >
-                        <p className="text-white/82 leading-relaxed">
+                      <div className="ty-msg-bubble rounded-2xl p-3 sm:p-4 mb-3 sm:mb-4 border">
+                        <p className="ty-msg-text leading-relaxed text-sm sm:text-base">
                           {msg.message}
                         </p>
                       </div>
 
-                      {/* Response or actions */}
+                      {/* Response or emoji actions */}
                       {msg.teacherResponse ? (
                         <motion.div
                           initial={{ opacity: 0, scale: 0.96 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          style={{
-                            background:
-                              "linear-gradient(135deg, rgba(196,77,255,0.13), rgba(255,107,157,0.09))",
-                            border: "1px solid rgba(196,77,255,0.28)",
-                            borderRadius: "16px",
-                          }}
-                          className="p-4"
+                          className="ty-response-box p-3 sm:p-4 rounded-2xl border"
                         >
                           <div className="flex items-start gap-3">
-                            <Avatar className="h-9 w-9 shrink-0">
+                            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
                               <AvatarImage src={userDetail.imageUrl} />
                               <AvatarFallback
                                 style={{
@@ -973,10 +630,10 @@ export default function ThanksMessagesPage() {
                             </Avatar>
                             <div>
                               <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                <span className="text-xs font-semibold text-purple-300">
+                                <span className="ty-response-name text-xs font-semibold">
                                   {userDetail.name || "You"}
                                 </span>
-                                <span className="text-xs text-white/28">
+                                <span className="ty-response-time text-xs">
                                   ✓{" "}
                                   {format(
                                     new Date(msg.teacherResponse.timestamp),
@@ -985,12 +642,12 @@ export default function ThanksMessagesPage() {
                                 </span>
                               </div>
                               {msg.teacherResponse.emoji && (
-                                <div className="text-2xl mb-1">
+                                <div className="text-xl sm:text-2xl mb-1">
                                   {msg.teacherResponse.emoji}
                                 </div>
                               )}
                               {msg.teacherResponse.message && (
-                                <p className="text-sm text-white/72">
+                                <p className="ty-response-text text-sm">
                                   {msg.teacherResponse.message}
                                 </p>
                               )}
@@ -998,7 +655,7 @@ export default function ThanksMessagesPage() {
                           </div>
                         </motion.div>
                       ) : (
-                        <div className="flex flex-wrap gap-2 items-center">
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
                           {EMOJI_OPTIONS.map((emoji, ei) => (
                             <motion.button
                               key={emoji}
@@ -1008,11 +665,7 @@ export default function ThanksMessagesPage() {
                               whileHover={{ scale: 1.28, y: -4 }}
                               whileTap={{ scale: 0.88 }}
                               onClick={() => handleQuickEmoji(msg._id, emoji)}
-                              className="text-xl w-10 h-10 flex items-center justify-center rounded-xl cursor-pointer"
-                              style={{
-                                background: "rgba(255,255,255,0.055)",
-                                border: "1px solid rgba(255,255,255,0.1)",
-                              }}
+                              className="ty-emoji-btn text-lg sm:text-xl w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl cursor-pointer border transition-all"
                             >
                               {emoji}
                             </motion.button>
@@ -1030,9 +683,9 @@ export default function ThanksMessagesPage() {
                                   "linear-gradient(135deg, #c44dff, #ff6b9d)",
                                 border: "none",
                               }}
-                              className="text-white font-semibold shadow-lg shadow-pink-500/25"
+                              className="text-white font-semibold shadow-lg shadow-pink-500/25 text-xs sm:text-sm"
                             >
-                              <Send className="h-3.5 w-3.5 mr-2" />
+                              <Send className="h-3.5 w-3.5 mr-1.5" />
                               Write Response
                             </Button>
                           </motion.div>
@@ -1052,26 +705,20 @@ export default function ThanksMessagesPage() {
         open={!!selectedMessage}
         onOpenChange={() => setSelectedMessage(null)}
       >
-        <DialogContent
-          className="sm:max-w-[500px]"
-          style={{
-            background: "linear-gradient(140deg, #1a0030 0%, #0d001f 100%)",
-            border: "1px solid rgba(196,77,255,0.28)",
-          }}
-        >
+        <DialogContent className="ty-dialog sm:max-w-[500px] border-2">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-white">
-              <Smile className="h-5 w-5 text-pink-400" />
+            <DialogTitle className="ty-dialog-title flex items-center gap-2">
+              <Smile className="h-5 w-5 text-pink-500" />
               Respond to Thank You
             </DialogTitle>
-            <DialogDescription className="text-white/45">
+            <DialogDescription className="ty-dialog-desc">
               Send an emoji or write a message back to your student
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-5 py-4">
+          <div className="space-y-4 sm:space-y-5 py-4">
             <div>
-              <label className="text-sm font-medium mb-3 block text-white/65">
+              <label className="ty-dialog-label text-sm font-medium mb-3 block">
                 Choose an emoji
               </label>
               <div className="flex flex-wrap gap-2">
@@ -1083,16 +730,16 @@ export default function ThanksMessagesPage() {
                     onClick={() =>
                       setResponseEmoji(responseEmoji === emoji ? "" : emoji)
                     }
-                    className="text-2xl w-12 h-12 flex items-center justify-center rounded-xl cursor-pointer transition-all"
+                    className="text-xl sm:text-2xl w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center rounded-xl cursor-pointer transition-all"
                     style={{
                       background:
                         responseEmoji === emoji
-                          ? "linear-gradient(135deg, rgba(196,77,255,0.4), rgba(255,107,157,0.4))"
-                          : "rgba(255,255,255,0.055)",
+                          ? "linear-gradient(135deg, rgba(196,77,255,0.3), rgba(255,107,157,0.3))"
+                          : undefined,
                       border:
                         responseEmoji === emoji
                           ? "2px solid #ff6b9d"
-                          : "1px solid rgba(255,255,255,0.1)",
+                          : "1px solid rgba(0,0,0,0.1)",
                       boxShadow:
                         responseEmoji === emoji ? "0 0 14px #ff6b9d40" : "none",
                     }}
@@ -1104,35 +751,30 @@ export default function ThanksMessagesPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block text-white/65">
+              <label className="ty-dialog-label text-sm font-medium mb-2 block">
                 Add a message (optional)
               </label>
               <Textarea
                 placeholder="No worries, thanks for letting me know — have a beautiful week! 🌟"
                 value={responseText}
                 onChange={(e) => setResponseText(e.target.value)}
-                className="min-h-[110px] resize-none text-white placeholder:text-white/28"
-                style={{
-                  background: "rgba(255,255,255,0.055)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                }}
+                className="ty-dialog-textarea min-h-[100px] sm:min-h-[110px] resize-none"
                 maxLength={300}
               />
-              <p className="text-xs text-white/28 mt-1 text-right">
+              <p className="ty-dialog-count text-xs mt-1 text-right">
                 {responseText.length}/300
               </p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="ghost"
+            <button
               onClick={() => setSelectedMessage(null)}
               disabled={isResponding}
-              className="text-white/55 hover:text-white hover:bg-white/10"
+              className="ty-dialog-cancel px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
             >
               Cancel
-            </Button>
+            </button>
             <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
               <Button
                 onClick={handleSendResponse}

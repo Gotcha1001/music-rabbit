@@ -12,7 +12,7 @@ export default function Pricing() {
 
   const [showForm, setShowForm] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<MusicPackage | null>(
-    null
+    null,
   );
 
   const [formData, setFormData] = useState({

@@ -1,229 +1,79 @@
-// "use client";
-
-// // app/dashboard/admin/leave-applications/page.tsx
-
-// import { useState } from "react";
-// import { useQuery, useMutation } from "convex/react";
-
-// import type { LeaveStatus } from "../../../types/leave";
-// import { api } from "../../../../../convex/_generated/api";
-// import AdminLeaveCard from "@/app/components/Adminleavecard";
-// import { Id } from "../../../../../convex/_generated/dataModel";
-
-// const C = {
-//   bg: "#0D0F1A",
-//   card: "#151828",
-//   border: "#1E2438",
-//   gold: "#F5C842",
-//   green: "#3DD68C",
-//   red: "#FF5C6A",
-//   text: "#E8EAF6",
-//   muted: "#6B7280",
-// };
-
-// type FilterOption = LeaveStatus | "all";
-
-// export default function AdminLeaveApplicationsPage() {
-//   const [filter, setFilter] = useState<FilterOption>("pending");
-
-//   // Pass undefined for "all" so the query returns everything
-//   const leaves =
-//     useQuery(
-//       api.leave.getAllLeave,
-//       filter === "all" ? {} : { status: filter },
-//     ) ?? [];
-
-//   // Always fetch all so stats are accurate regardless of active filter
-//   const allLeaves = useQuery(api.leave.getAllLeave, {}) ?? [];
-//   const decideLeave = useMutation(api.leave.decideLeave);
-
-//   const counts: Record<LeaveStatus, number> = {
-//     pending: allLeaves.filter((l) => l.status === "pending").length,
-//     approved: allLeaves.filter((l) => l.status === "approved").length,
-//     rejected: allLeaves.filter((l) => l.status === "rejected").length,
-//   };
-
-//   async function handleDecide(
-//     id: string,
-//     status: LeaveStatus,
-//     adminNote: string,
-//   ): Promise<void> {
-//     await decideLeave({
-//       leaveId: id as Id<"leaveApplications">,
-//       status: status as "approved" | "rejected",
-//       adminNote: adminNote || undefined,
-//     });
-//   }
-
-//   return (
-//     <div
-//       style={{
-//         background: C.bg,
-//         minHeight: "100vh",
-//         color: C.text,
-//         fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-//       }}
-//     >
-//       <div
-//         style={{ maxWidth: "760px", margin: "0 auto", padding: "36px 24px" }}
-//       >
-//         {/* Heading */}
-//         <div style={{ marginBottom: "30px" }}>
-//           <h1
-//             style={{
-//               fontSize: "26px",
-//               fontWeight: 800,
-//               color: C.gold,
-//               letterSpacing: "-0.02em",
-//               margin: 0,
-//             }}
-//           >
-//             Leave Applications
-//           </h1>
-//           <p
-//             style={{
-//               fontSize: "13px",
-//               color: C.muted,
-//               marginTop: "4px",
-//               marginBottom: 0,
-//             }}
-//           >
-//             Review, approve or reject teacher leave requests
-//           </p>
-//         </div>
-
-//         {/* Stats */}
-//         <div
-//           style={{
-//             display: "grid",
-//             gridTemplateColumns: "repeat(3, 1fr)",
-//             gap: "12px",
-//             marginBottom: "26px",
-//           }}
-//         >
-//           {(
-//             [
-//               { label: "Pending", count: counts.pending, color: C.gold },
-//               { label: "Approved", count: counts.approved, color: C.green },
-//               { label: "Rejected", count: counts.rejected, color: C.red },
-//             ] as const
-//           ).map((s) => (
-//             <div
-//               key={s.label}
-//               style={{
-//                 background: C.card,
-//                 border: `1px solid ${C.border}`,
-//                 borderRadius: "12px",
-//                 padding: "18px 20px",
-//               }}
-//             >
-//               <div
-//                 style={{ fontSize: "28px", fontWeight: 800, color: s.color }}
-//               >
-//                 {s.count}
-//               </div>
-//               <div
-//                 style={{ fontSize: "12px", color: C.muted, marginTop: "2px" }}
-//               >
-//                 {s.label}
-//               </div>
-//             </div>
-//           ))}
-//         </div>
-
-//         {/* Filter buttons */}
-//         <div
-//           style={{
-//             display: "flex",
-//             gap: "8px",
-//             marginBottom: "22px",
-//             flexWrap: "wrap",
-//           }}
-//         >
-//           {[
-//             { val: "pending" as FilterOption, label: "Pending" },
-//             { val: "approved" as FilterOption, label: "Approved" },
-//             { val: "rejected" as FilterOption, label: "Rejected" },
-//             { val: "all" as FilterOption, label: "All" },
-//           ].map(({ val, label }) => (
-//             <button
-//               key={val}
-//               onClick={() => setFilter(val)}
-//               style={{
-//                 background: filter === val ? C.gold : "transparent",
-//                 color: filter === val ? "#0D0F1A" : C.muted,
-//                 border: `1px solid ${filter === val ? C.gold : C.border}`,
-//                 borderRadius: "8px",
-//                 padding: "7px 16px",
-//                 fontSize: "12px",
-//                 fontWeight: 700,
-//                 cursor: "pointer",
-//                 letterSpacing: "0.04em",
-//                 transition: "all 0.15s",
-//               }}
-//             >
-//               {label}
-//               {val === "pending" && counts.pending > 0
-//                 ? ` (${counts.pending})`
-//                 : ""}
-//             </button>
-//           ))}
-//         </div>
-
-//         {/* Empty state */}
-//         {leaves.length === 0 ? (
-//           <div
-//             style={{
-//               textAlign: "center",
-//               padding: "64px 24px",
-//               color: C.muted,
-//               fontSize: "14px",
-//             }}
-//           >
-//             No {filter === "all" ? "" : filter} applications.
-//           </div>
-//         ) : (
-//           leaves.map((l) => (
-//             <AdminLeaveCard key={l._id} leave={l} onDecide={handleDecide} />
-//           ))
-//         )}
-//       </div>
-//     </div>
-//   );
-// }
 "use client";
-
-// app/dashboard/admin/leave-applications/page.tsx
-// ─── UPDATED: shadcn Tabs to toggle between Leave Applications and Resignations ───
 
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import type { LeaveStatus } from "../../../types/leave";
 import { api } from "../../../../../convex/_generated/api";
 import AdminLeaveCard from "@/app/components/Adminleavecard";
-
 import { Id } from "../../../../../convex/_generated/dataModel";
-
-// shadcn Tabs
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import AdminResignationCard from "@/app/components/Adminresignationcard";
 
-const C = {
-  bg: "#0D0F1A",
-  card: "#151828",
-  border: "#1E2438",
-  gold: "#F5C842",
-  green: "#3DD68C",
-  red: "#FF5C6A",
-  text: "#E8EAF6",
-  muted: "#6B7280",
-};
+/* ─────────────────────────────────────────────────────────────
+   !important overrides
+   Light = default  |  Dark = .dark prefix
+───────────────────────────────────────────────────────────── */
+const ALEAVE_STYLES = `
+  /* Page */
+  .aleave-page                          { background: #ffffff !important; color: hsl(var(--foreground)) !important; }
+  .dark .aleave-page                    { background: #0D0F1A !important; color: #E8EAF6 !important; }
+
+  /* Heading */
+  .aleave-title                         { color: hsl(var(--primary)) !important; }
+  .dark .aleave-title                   { color: #F5C842 !important; }
+  .aleave-subtitle                      { color: hsl(var(--muted-foreground)) !important; }
+  .dark .aleave-subtitle                { color: #6B7280 !important; }
+
+  /* Tab bar */
+  .aleave-tablist                       { background: hsl(var(--muted)) !important; border-color: hsl(var(--border)) !important; }
+  .dark .aleave-tablist                 { background: #151828 !important; border-color: #1E2438 !important; }
+  .aleave-tablist [role="tab"]          { color: hsl(var(--muted-foreground)) !important; }
+  .dark .aleave-tablist [role="tab"]    { color: #6B7280 !important; }
+
+  /* Leave tab active */
+  .aleave-tablist [role="tab"][data-state="active"].tab-leave {
+    background: hsl(var(--primary)) !important; color: #ffffff !important; font-weight: 700 !important; box-shadow: none !important;
+  }
+  .dark .aleave-tablist [role="tab"][data-state="active"].tab-leave {
+    background: #F5C842 !important; color: #0D0F1A !important;
+  }
+  /* Resignation tab active */
+  .aleave-tablist [role="tab"][data-state="active"].tab-resign {
+    background: #dc2626 !important; color: #ffffff !important; font-weight: 700 !important; box-shadow: none !important;
+  }
+  .dark .aleave-tablist [role="tab"][data-state="active"].tab-resign {
+    background: #FF5C6A !important; color: #ffffff !important;
+  }
+
+  /* Stat tiles */
+  .aleave-stat                          { background: hsl(var(--muted)) !important; border-color: hsl(var(--border)) !important; }
+  .dark .aleave-stat                    { background: #151828 !important; border-color: #1E2438 !important; }
+  .aleave-stat-label                    { color: hsl(var(--muted-foreground)) !important; }
+  .dark .aleave-stat-label              { color: #6B7280 !important; }
+
+  /* Leave filter buttons */
+  .aleave-filter-btn                    { color: hsl(var(--muted-foreground)) !important; border-color: hsl(var(--border)) !important; background: transparent !important; }
+  .aleave-filter-btn:hover              { background: hsl(var(--muted)) !important; }
+  .aleave-filter-btn-active             { background: hsl(var(--primary)) !important; color: #ffffff !important; border-color: hsl(var(--primary)) !important; }
+  .dark .aleave-filter-btn             { color: #6B7280 !important; border-color: #1E2438 !important; }
+  .dark .aleave-filter-btn-active      { background: #F5C842 !important; color: #0D0F1A !important; border-color: #F5C842 !important; }
+
+  /* Resignation filter buttons */
+  .aleave-resign-btn                    { color: hsl(var(--muted-foreground)) !important; border-color: hsl(var(--border)) !important; background: transparent !important; }
+  .aleave-resign-btn:hover              { background: hsl(var(--muted)) !important; }
+  .aleave-resign-btn-active             { background: #dc2626 !important; color: #ffffff !important; border-color: #dc2626 !important; }
+  .dark .aleave-resign-btn             { color: #6B7280 !important; border-color: #1E2438 !important; }
+  .dark .aleave-resign-btn-active      { background: #FF5C6A !important; color: #ffffff !important; border-color: #FF5C6A !important; }
+
+  /* Empty state */
+  .aleave-empty                         { color: hsl(var(--muted-foreground)) !important; }
+  .dark .aleave-empty                   { color: #6B7280 !important; }
+`;
 
 type FilterOption = LeaveStatus | "all";
 type ResignationFilterOption = "pending" | "acknowledged" | "rejected" | "all";
 
 export default function AdminLeaveApplicationsPage() {
-  // ── Leave state & queries ─────────────────────────────────────────────────
   const [filter, setFilter] = useState<FilterOption>("pending");
   const leaves =
     useQuery(
@@ -233,17 +83,17 @@ export default function AdminLeaveApplicationsPage() {
   const allLeaves = useQuery(api.leave.getAllLeave, {}) ?? [];
   const decideLeave = useMutation(api.leave.decideLeave);
 
-  const leaveCounts: Record<LeaveStatus, number> = {
+  const leaveCounts = {
     pending: allLeaves.filter((l) => l.status === "pending").length,
     approved: allLeaves.filter((l) => l.status === "approved").length,
     rejected: allLeaves.filter((l) => l.status === "rejected").length,
-  };
+  } as Record<LeaveStatus, number>;
 
   async function handleDecideLeave(
     id: string,
     status: LeaveStatus,
     adminNote: string,
-  ): Promise<void> {
+  ) {
     await decideLeave({
       leaveId: id as Id<"leaveApplications">,
       status: status as "approved" | "rejected",
@@ -251,7 +101,6 @@ export default function AdminLeaveApplicationsPage() {
     });
   }
 
-  // ── Resignation state & queries ───────────────────────────────────────────
   const [resignFilter, setResignFilter] =
     useState<ResignationFilterOption>("pending");
   const resignations =
@@ -276,7 +125,7 @@ export default function AdminLeaveApplicationsPage() {
     id: string,
     status: "acknowledged" | "rejected",
     adminNote: string,
-  ): Promise<void> {
+  ) {
     await decideResignation({
       resignationId: id as Id<"resignations">,
       status,
@@ -284,154 +133,88 @@ export default function AdminLeaveApplicationsPage() {
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  const leaveFilterBtns: { val: FilterOption; label: string }[] = [
+    { val: "pending", label: "Pending" },
+    { val: "approved", label: "Approved" },
+    { val: "rejected", label: "Rejected" },
+    { val: "all", label: "All" },
+  ];
+  const resignFilterBtns: { val: ResignationFilterOption; label: string }[] = [
+    { val: "pending", label: "Pending" },
+    { val: "acknowledged", label: "Acknowledged" },
+    { val: "rejected", label: "Rejected" },
+    { val: "all", label: "All" },
+  ];
+
   return (
-    <div
-      style={{
-        background: C.bg,
-        minHeight: "100vh",
-        color: C.text,
-        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-      }}
-    >
-      <div
-        style={{ maxWidth: "760px", margin: "0 auto", padding: "36px 24px" }}
-      >
+    <div className="aleave-page min-h-screen">
+      <style>{ALEAVE_STYLES}</style>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-9">
         {/* Heading */}
-        <div style={{ marginBottom: "28px" }}>
-          <h1
-            style={{
-              fontSize: "26px",
-              fontWeight: 800,
-              color: C.gold,
-              letterSpacing: "-0.02em",
-              margin: 0,
-            }}
-          >
-            Leave & Resignations
+        <div className="mb-6 sm:mb-7">
+          <h1 className="aleave-title text-2xl sm:text-[26px] font-extrabold tracking-tight font-serif">
+            Leave &amp; Resignations
           </h1>
-          <p
-            style={{
-              fontSize: "13px",
-              color: C.muted,
-              marginTop: "4px",
-              marginBottom: 0,
-            }}
-          >
+          <p className="aleave-subtitle text-xs sm:text-[13px] mt-1">
             Review, approve or reject teacher requests
           </p>
         </div>
 
-        {/* ── shadcn Tabs ──────────────────────────────────────────────────── */}
         <Tabs defaultValue="leave" className="w-full">
-          <TabsList
-            className="mb-6 w-full"
-            style={{
-              background: "#151828",
-              border: "1px solid #1E2438",
-              borderRadius: "10px",
-              padding: "4px",
-            }}
-          >
+          <TabsList className="aleave-tablist mb-5 sm:mb-6 w-full border rounded-[10px] p-1 h-auto">
             <TabsTrigger
               value="leave"
-              className="flex-1 data-[state=active]:bg-[#F5C842] data-[state=active]:text-[#0D0F1A] data-[state=active]:font-bold text-[#6B7280] rounded-[7px] transition-all"
+              className="tab-leave flex-1 rounded-[7px] transition-all text-sm py-2"
             >
               🏖 Leave Applications
               {leaveCounts.pending > 0 && (
-                <span
-                  style={{
-                    background: C.gold,
-                    color: "#0D0F1A",
-                    borderRadius: "10px",
-                    padding: "1px 7px",
-                    fontSize: "10px",
-                    fontWeight: 800,
-                    marginLeft: "6px",
-                  }}
-                >
+                <span className="ml-1.5 bg-yellow-400 dark:bg-[#F5C842] text-black rounded-full px-2 py-0.5 text-[10px] font-black">
                   {leaveCounts.pending}
                 </span>
               )}
             </TabsTrigger>
             <TabsTrigger
               value="resignation"
-              className="flex-1 data-[state=active]:bg-[#FF5C6A] data-[state=active]:text-white data-[state=active]:font-bold text-[#6B7280] rounded-[7px] transition-all"
+              className="tab-resign flex-1 rounded-[7px] transition-all text-sm py-2"
             >
               📝 Resignations
               {resignCounts.pending > 0 && (
-                <span
-                  style={{
-                    background: C.red,
-                    color: "#fff",
-                    borderRadius: "10px",
-                    padding: "1px 7px",
-                    fontSize: "10px",
-                    fontWeight: 800,
-                    marginLeft: "6px",
-                  }}
-                >
+                <span className="ml-1.5 bg-red-600 dark:bg-[#FF5C6A] text-white rounded-full px-2 py-0.5 text-[10px] font-black">
                   {resignCounts.pending}
                 </span>
               )}
             </TabsTrigger>
           </TabsList>
 
-          {/* ── LEAVE TAB ─────────────────────────────────────────────────── */}
+          {/* ── LEAVE TAB ── */}
           <TabsContent value="leave">
             {/* Stats */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: "12px",
-                marginBottom: "26px",
-              }}
-            >
-              {(
-                [
-                  {
-                    label: "Pending",
-                    count: leaveCounts.pending,
-                    color: C.gold,
-                  },
-                  {
-                    label: "Approved",
-                    count: leaveCounts.approved,
-                    color: C.green,
-                  },
-                  {
-                    label: "Rejected",
-                    count: leaveCounts.rejected,
-                    color: C.red,
-                  },
-                ] as const
-              ).map((s) => (
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5 sm:mb-6">
+              {[
+                {
+                  label: "Pending",
+                  count: leaveCounts.pending,
+                  color: "text-yellow-500 dark:text-[#F5C842]",
+                },
+                {
+                  label: "Approved",
+                  count: leaveCounts.approved,
+                  color: "text-green-500 dark:text-[#3DD68C]",
+                },
+                {
+                  label: "Rejected",
+                  count: leaveCounts.rejected,
+                  color: "text-red-500 dark:text-[#FF5C6A]",
+                },
+              ].map((s) => (
                 <div
                   key={s.label}
-                  style={{
-                    background: C.card,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: "12px",
-                    padding: "18px 20px",
-                  }}
+                  className="aleave-stat rounded-xl border p-3 sm:p-5"
                 >
-                  <div
-                    style={{
-                      fontSize: "28px",
-                      fontWeight: 800,
-                      color: s.color,
-                    }}
-                  >
+                  <div className={`text-2xl sm:text-3xl font-black ${s.color}`}>
                     {s.count}
                   </div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      color: C.muted,
-                      marginTop: "2px",
-                    }}
-                  >
+                  <div className="aleave-stat-label text-xs mt-1">
                     {s.label}
                   </div>
                 </div>
@@ -439,35 +222,12 @@ export default function AdminLeaveApplicationsPage() {
             </div>
 
             {/* Filter buttons */}
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                marginBottom: "22px",
-                flexWrap: "wrap",
-              }}
-            >
-              {[
-                { val: "pending" as FilterOption, label: "Pending" },
-                { val: "approved" as FilterOption, label: "Approved" },
-                { val: "rejected" as FilterOption, label: "Rejected" },
-                { val: "all" as FilterOption, label: "All" },
-              ].map(({ val, label }) => (
+            <div className="flex gap-2 mb-5 sm:mb-6 flex-wrap">
+              {leaveFilterBtns.map(({ val, label }) => (
                 <button
                   key={val}
                   onClick={() => setFilter(val)}
-                  style={{
-                    background: filter === val ? C.gold : "transparent",
-                    color: filter === val ? "#0D0F1A" : C.muted,
-                    border: `1px solid ${filter === val ? C.gold : C.border}`,
-                    borderRadius: "8px",
-                    padding: "7px 16px",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    letterSpacing: "0.04em",
-                    transition: "all 0.15s",
-                  }}
+                  className={`${filter === val ? "aleave-filter-btn-active" : "aleave-filter-btn"} px-3 sm:px-4 py-1.5 rounded-lg border text-xs font-bold tracking-wide transition-all`}
                 >
                   {label}
                   {val === "pending" && leaveCounts.pending > 0
@@ -478,14 +238,7 @@ export default function AdminLeaveApplicationsPage() {
             </div>
 
             {leaves.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "64px 24px",
-                  color: C.muted,
-                  fontSize: "14px",
-                }}
-              >
+              <div className="aleave-empty text-center py-12 sm:py-16 text-sm">
                 No {filter === "all" ? "" : filter} applications.
               </div>
             ) : (
@@ -499,61 +252,35 @@ export default function AdminLeaveApplicationsPage() {
             )}
           </TabsContent>
 
-          {/* ── RESIGNATION TAB ───────────────────────────────────────────── */}
+          {/* ── RESIGNATION TAB ── */}
           <TabsContent value="resignation">
             {/* Stats */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: "12px",
-                marginBottom: "26px",
-              }}
-            >
-              {(
-                [
-                  {
-                    label: "Pending",
-                    count: resignCounts.pending,
-                    color: C.gold,
-                  },
-                  {
-                    label: "Acknowledged",
-                    count: resignCounts.acknowledged,
-                    color: C.green,
-                  },
-                  {
-                    label: "Rejected",
-                    count: resignCounts.rejected,
-                    color: C.red,
-                  },
-                ] as const
-              ).map((s) => (
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5 sm:mb-6">
+              {[
+                {
+                  label: "Pending",
+                  count: resignCounts.pending,
+                  color: "text-yellow-500 dark:text-[#F5C842]",
+                },
+                {
+                  label: "Acknowledged",
+                  count: resignCounts.acknowledged,
+                  color: "text-green-500 dark:text-[#3DD68C]",
+                },
+                {
+                  label: "Rejected",
+                  count: resignCounts.rejected,
+                  color: "text-red-500 dark:text-[#FF5C6A]",
+                },
+              ].map((s) => (
                 <div
                   key={s.label}
-                  style={{
-                    background: C.card,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: "12px",
-                    padding: "18px 20px",
-                  }}
+                  className="aleave-stat rounded-xl border p-3 sm:p-5"
                 >
-                  <div
-                    style={{
-                      fontSize: "28px",
-                      fontWeight: 800,
-                      color: s.color,
-                    }}
-                  >
+                  <div className={`text-2xl sm:text-3xl font-black ${s.color}`}>
                     {s.count}
                   </div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      color: C.muted,
-                      marginTop: "2px",
-                    }}
-                  >
+                  <div className="aleave-stat-label text-xs mt-1">
                     {s.label}
                   </div>
                 </div>
@@ -561,41 +288,12 @@ export default function AdminLeaveApplicationsPage() {
             </div>
 
             {/* Filter buttons */}
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                marginBottom: "22px",
-                flexWrap: "wrap",
-              }}
-            >
-              {[
-                { val: "pending" as ResignationFilterOption, label: "Pending" },
-                {
-                  val: "acknowledged" as ResignationFilterOption,
-                  label: "Acknowledged",
-                },
-                {
-                  val: "rejected" as ResignationFilterOption,
-                  label: "Rejected",
-                },
-                { val: "all" as ResignationFilterOption, label: "All" },
-              ].map(({ val, label }) => (
+            <div className="flex gap-2 mb-5 sm:mb-6 flex-wrap">
+              {resignFilterBtns.map(({ val, label }) => (
                 <button
                   key={val}
                   onClick={() => setResignFilter(val)}
-                  style={{
-                    background: resignFilter === val ? C.red : "transparent",
-                    color: resignFilter === val ? "#fff" : C.muted,
-                    border: `1px solid ${resignFilter === val ? C.red : C.border}`,
-                    borderRadius: "8px",
-                    padding: "7px 16px",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    letterSpacing: "0.04em",
-                    transition: "all 0.15s",
-                  }}
+                  className={`${resignFilter === val ? "aleave-resign-btn-active" : "aleave-resign-btn"} px-3 sm:px-4 py-1.5 rounded-lg border text-xs font-bold tracking-wide transition-all`}
                 >
                   {label}
                   {val === "pending" && resignCounts.pending > 0
@@ -606,14 +304,7 @@ export default function AdminLeaveApplicationsPage() {
             </div>
 
             {resignations.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "64px 24px",
-                  color: C.muted,
-                  fontSize: "14px",
-                }}
-              >
+              <div className="aleave-empty text-center py-12 sm:py-16 text-sm">
                 No {resignFilter === "all" ? "" : resignFilter} resignations.
               </div>
             ) : (

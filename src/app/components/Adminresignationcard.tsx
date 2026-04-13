@@ -1,47 +1,95 @@
 "use client";
 
 // components/leave/AdminResignationCard.tsx
-// Admin card for reviewing resignation notices.
-// Prominently flags shortNotice resignations so admin knows to withhold final-month pay.
-
 import { useState } from "react";
 import { Resignation, ResignationStatus } from "../../../convex/resignations";
 
-const C = {
-  card: "#151828",
-  border: "#1E2438",
-  red: "#FF5C6A",
-  green: "#3DD68C",
-  gold: "#F5C842",
-  orange: "#FF8C42",
-  text: "#E8EAF6",
-  muted: "#6B7280",
-  surface: "#1C2035",
-};
+const ARC_STYLES = `
+  .arc-card                   { background: #ffffff !important; border-color: hsl(var(--border)) !important; box-shadow: 0 2px 10px rgba(0,0,0,0.06) !important; }
+  .arc-card-warn              { background: #ffffff !important; border-color: rgba(239,68,68,0.4) !important; }
+  .dark .arc-card             { background: #151828 !important; border-color: #1E2438 !important; }
+  .dark .arc-card-warn        { background: #151828 !important; border-color: rgba(255,92,106,0.5) !important; }
 
-const statusPalette: Record<
-  ResignationStatus,
-  { bg: string; border: string; color: string; label: string }
-> = {
-  pending: {
-    bg: "rgba(245,200,66,0.12)",
-    border: "rgba(245,200,66,0.35)",
-    color: C.gold,
-    label: "Pending",
-  },
-  acknowledged: {
-    bg: "rgba(61,214,140,0.12)",
-    border: "rgba(61,214,140,0.35)",
-    color: C.green,
-    label: "Acknowledged",
-  },
-  rejected: {
-    bg: "rgba(255,92,106,0.12)",
-    border: "rgba(255,92,106,0.35)",
-    color: C.red,
-    label: "Rejected",
-  },
-};
+  /* Short-notice warning banner */
+  .arc-warn-banner            { background: rgba(239,68,68,0.08) !important; border-color: rgba(239,68,68,0.3) !important; color: #dc2626 !important; }
+  .dark .arc-warn-banner      { background: rgba(255,92,106,0.1) !important; border-color: rgba(255,92,106,0.35) !important; color: #FF5C6A !important; }
+
+  /* Teacher name */
+  .arc-name                   { color: hsl(var(--foreground)) !important; }
+  .dark .arc-name             { color: #E8EAF6 !important; }
+
+  /* "Resignation" tag */
+  .arc-tag-resign             { background: rgba(239,68,68,0.08) !important; color: #dc2626 !important; }
+  .dark .arc-tag-resign       { background: rgba(255,92,106,0.1) !important; color: #FF5C6A !important; }
+
+  /* "SHORT NOTICE" tag */
+  .arc-tag-short              { background: rgba(239,68,68,0.12) !important; border-color: rgba(239,68,68,0.35) !important; color: #dc2626 !important; }
+  .dark .arc-tag-short        { background: rgba(255,92,106,0.15) !important; border-color: rgba(255,92,106,0.4) !important; color: #FF5C6A !important; }
+
+  /* Meta line */
+  .arc-meta                   { color: hsl(var(--muted-foreground)) !important; }
+  .dark .arc-meta             { color: #6B7280 !important; }
+  .arc-meta-date              { color: #dc2626 !important; }
+  .dark .arc-meta-date        { color: #FF5C6A !important; }
+
+  /* Reason / handover boxes */
+  .arc-box                    { background: hsl(var(--muted)) !important; }
+  .dark .arc-box              { background: #1C2035 !important; }
+  .arc-box-text               { color: hsl(var(--foreground)) !important; }
+  .arc-box-muted              { color: hsl(var(--muted-foreground)) !important; }
+  .dark .arc-box-text         { color: rgba(232,234,246,0.82) !important; }
+  .dark .arc-box-muted        { color: #6B7280 !important; }
+  .arc-box-label              { color: hsl(var(--foreground)) !important; font-weight: 600 !important; }
+  .dark .arc-box-label        { color: #E8EAF6 !important; }
+
+  /* Admin note (read-only) */
+  .arc-admin-note             { color: hsl(var(--muted-foreground)) !important; }
+  .dark .arc-admin-note       { color: #6B7280 !important; }
+
+  /* Action area label */
+  .arc-action-label           { color: hsl(var(--muted-foreground)) !important; }
+  .dark .arc-action-label     { color: #6B7280 !important; }
+
+  /* Note input */
+  .arc-input                  { background: #ffffff !important; border-color: hsl(var(--border)) !important; color: hsl(var(--foreground)) !important; }
+  .arc-input:focus            { border-color: hsl(var(--primary)) !important; box-shadow: 0 0 0 2px hsl(var(--primary)/0.2) !important; }
+  .arc-input::placeholder     { color: hsl(var(--muted-foreground)) !important; }
+  .dark .arc-input            { background: #1C2035 !important; border-color: #1E2438 !important; color: #E8EAF6 !important; }
+  .dark .arc-input::placeholder { color: #6B7280 !important; }
+
+  /* Acknowledge button */
+  .arc-ack-btn                { background: #16a34a !important; color: #ffffff !important; border: none !important; }
+  .arc-ack-btn:hover          { background: #15803d !important; }
+  .dark .arc-ack-btn          { background: linear-gradient(135deg, #3DD68C, #2aad72) !important; color: #0D0F1A !important; }
+
+  /* Reject button */
+  .arc-rej-btn                { background: transparent !important; color: #dc2626 !important; border-color: #dc2626 !important; }
+  .arc-rej-btn:hover          { background: rgba(220,38,38,0.08) !important; }
+  .dark .arc-rej-btn          { color: #FF5C6A !important; border-color: #FF5C6A !important; }
+  .dark .arc-rej-btn:hover    { background: rgba(255,92,106,0.1) !important; }
+`;
+
+// Status badge colours — light & dark handled via inline styles keyed per mode
+function getStatusStyle(status: ResignationStatus, isDark: boolean) {
+  const map = {
+    pending: {
+      bg: isDark ? "rgba(245,200,66,0.12)" : "rgba(234,179,8,0.1)",
+      border: isDark ? "rgba(245,200,66,0.35)" : "rgba(234,179,8,0.3)",
+      color: isDark ? "#F5C842" : "#a16207",
+    },
+    acknowledged: {
+      bg: isDark ? "rgba(61,214,140,0.12)" : "rgba(22,163,74,0.08)",
+      border: isDark ? "rgba(61,214,140,0.35)" : "rgba(22,163,74,0.3)",
+      color: isDark ? "#3DD68C" : "#15803d",
+    },
+    rejected: {
+      bg: isDark ? "rgba(255,92,106,0.12)" : "rgba(220,38,38,0.08)",
+      border: isDark ? "rgba(255,92,106,0.35)" : "rgba(220,38,38,0.3)",
+      color: isDark ? "#FF5C6A" : "#dc2626",
+    },
+  };
+  return map[status];
+}
 
 function fmtDate(dateStr: string): string {
   if (!dateStr) return "—";
@@ -65,96 +113,52 @@ export default function AdminResignationCard({
   resignation: r,
   onDecide,
 }: AdminResignationCardProps) {
-  const [note, setNote] = useState<string>("");
-  const s = statusPalette[r.status];
+  const [note, setNote] = useState("");
+  // Detect dark mode at render time
+  const isDark =
+    typeof window !== "undefined" &&
+    document.documentElement.classList.contains("dark");
+  const s = getStatusStyle(r.status, isDark);
 
-  function handleDecide(status: "acknowledged" | "rejected"): void {
+  function handleDecide(status: "acknowledged" | "rejected") {
     onDecide(r._id, status, note.trim());
     setNote("");
   }
 
   return (
     <div
-      style={{
-        background: C.card,
-        border: `1px solid ${r.shortNotice ? "rgba(255,92,106,0.5)" : C.border}`,
-        borderRadius: "14px",
-        padding: "22px 24px",
-        marginBottom: "16px",
-      }}
+      className={`${r.shortNotice ? "arc-card-warn" : "arc-card"} rounded-2xl border p-4 sm:p-6 mb-4 shadow-sm`}
     >
-      {/* Short-notice payroll warning — shown prominently at the top */}
+      <style>{ARC_STYLES}</style>
+
+      {/* Short-notice warning banner */}
       {r.shortNotice && (
-        <div
-          style={{
-            background: "rgba(255,92,106,0.1)",
-            border: "1px solid rgba(255,92,106,0.35)",
-            borderRadius: "8px",
-            padding: "10px 14px",
-            marginBottom: "14px",
-            fontSize: "12px",
-            color: C.red,
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <span style={{ fontSize: "15px" }}>⚠️</span>
+        <div className="arc-warn-banner flex items-center gap-2 rounded-lg border px-3 sm:px-4 py-2.5 mb-3 sm:mb-4 text-xs sm:text-sm font-semibold">
+          <span className="text-base shrink-0">⚠️</span>
           Short notice — less than 1 month given.{" "}
           <strong>Final month pay should be withheld</strong> per policy.
         </div>
       )}
 
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: "10px",
-          marginBottom: "12px",
-        }}
-      >
-        <div>
-          <div
-            style={{ fontWeight: 700, fontSize: "15px", marginBottom: "4px" }}
-          >
-            {r.teacherName}
-            <span
-              style={{
-                background: "rgba(255,92,106,0.1)",
-                color: C.red,
-                fontSize: "11px",
-                fontWeight: 600,
-                borderRadius: "6px",
-                padding: "2px 8px",
-                marginLeft: "10px",
-              }}
-            >
+      <div className="flex justify-between items-start flex-wrap gap-2 sm:gap-3 mb-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+            <span className="arc-name font-bold text-sm sm:text-base">
+              {r.teacherName}
+            </span>
+            <span className="arc-tag-resign text-xs font-semibold rounded-md px-2 py-0.5">
               Resignation
             </span>
             {r.shortNotice && (
-              <span
-                style={{
-                  background: "rgba(255,92,106,0.15)",
-                  color: C.red,
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  borderRadius: "6px",
-                  padding: "2px 8px",
-                  marginLeft: "6px",
-                  border: "1px solid rgba(255,92,106,0.4)",
-                }}
-              >
+              <span className="arc-tag-short text-xs font-black rounded-md px-2 py-0.5 border">
                 SHORT NOTICE · NO PAY
               </span>
             )}
           </div>
-          <div style={{ fontSize: "13px", color: C.muted }}>
+          <div className="arc-meta text-xs sm:text-sm">
             Last working day:{" "}
-            <strong style={{ color: C.red }}>
+            <strong className="arc-meta-date">
               {fmtDate(r.lastWorkingDay)}
             </strong>
             {"  ·  "}
@@ -165,90 +169,50 @@ export default function AdminResignationCard({
 
         {/* Status badge */}
         <span
+          className="text-xs font-bold uppercase tracking-widest rounded-full px-3 py-1 shrink-0"
           style={{
-            display: "inline-block",
-            padding: "3px 11px",
-            borderRadius: "20px",
-            fontSize: "10px",
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
             background: s.bg,
             border: `1px solid ${s.border}`,
             color: s.color,
           }}
         >
-          {s.label}
+          {r.status === "acknowledged"
+            ? "Acknowledged"
+            : r.status === "rejected"
+              ? "Rejected"
+              : "Pending"}
         </span>
       </div>
 
       {/* Reason */}
       <div
-        style={{
-          fontSize: "13px",
-          color: C.text,
-          opacity: 0.82,
-          lineHeight: "1.6",
-          background: C.surface,
-          borderRadius: "8px",
-          padding: "12px 14px",
-          marginBottom: r.handoverNotes || r.status === "pending" ? "12px" : 0,
-        }}
+        className={`arc-box arc-box-text rounded-lg px-3 sm:px-4 py-3 text-xs sm:text-sm leading-relaxed mb-3 ${r.handoverNotes || r.status === "pending" ? "" : ""}`}
       >
         {r.reason}
       </div>
 
       {/* Handover notes */}
       {r.handoverNotes && (
-        <div
-          style={{
-            fontSize: "12px",
-            color: C.muted,
-            background: C.surface,
-            borderRadius: "8px",
-            padding: "10px 14px",
-            marginBottom: r.status === "pending" ? "12px" : 0,
-            lineHeight: "1.5",
-          }}
-        >
-          <span style={{ fontWeight: 600, color: C.text }}>
-            Handover notes:{" "}
-          </span>
+        <div className="arc-box arc-box-muted rounded-lg px-3 sm:px-4 py-3 text-xs sm:text-sm leading-relaxed mb-3">
+          <span className="arc-box-label">Handover notes: </span>
           {r.handoverNotes}
         </div>
       )}
 
-      {/* Admin note read-only after decision */}
+      {/* Admin note (read-only after decision) */}
       {r.adminNote && r.status !== "pending" && (
-        <div
-          style={{
-            fontSize: "12px",
-            color: C.muted,
-            fontStyle: "italic",
-            marginTop: "10px",
-          }}
-        >
+        <p className="arc-admin-note text-xs italic mt-2">
           Your note: {r.adminNote}
-        </div>
+        </p>
       )}
 
       {/* Action area — pending only */}
       {r.status === "pending" && (
         <>
-          <div style={{ marginBottom: "12px" }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: "11px",
-                fontWeight: 600,
-                letterSpacing: "0.07em",
-                textTransform: "uppercase",
-                color: C.muted,
-                marginBottom: "7px",
-              }}
-            >
+          <div className="mb-3">
+            <label className="arc-action-label block text-xs font-semibold uppercase tracking-wider mb-1.5">
               Admin Note{" "}
-              <span style={{ fontWeight: 400, textTransform: "none" }}>
+              <span className="font-normal normal-case">
                 (shown to teacher)
               </span>
             </label>
@@ -261,49 +225,20 @@ export default function AdminResignationCard({
                   ? "e.g. Acknowledged — final month pay withheld due to short notice..."
                   : "e.g. Acknowledged — best of luck, or reason for rejection..."
               }
-              style={{
-                width: "100%",
-                background: C.surface,
-                border: `1px solid ${C.border}`,
-                borderRadius: "9px",
-                padding: "10px 14px",
-                color: C.text,
-                fontSize: "13px",
-                outline: "none",
-                boxSizing: "border-box",
-                fontFamily: "inherit",
-              }}
+              className="arc-input w-full px-3 sm:px-4 py-2.5 rounded-xl border text-xs sm:text-sm outline-none transition-all"
             />
           </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="flex gap-2 sm:gap-3 flex-wrap">
             <button
               onClick={() => handleDecide("acknowledged")}
-              style={{
-                background: `linear-gradient(135deg, ${C.green}, #2aad72)`,
-                color: "#0D0F1A",
-                border: "none",
-                borderRadius: "9px",
-                padding: "10px 22px",
-                fontSize: "13px",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
+              className="arc-ack-btn px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all"
             >
               ✓ Acknowledge
             </button>
             <button
               onClick={() => handleDecide("rejected")}
-              style={{
-                background: "transparent",
-                color: C.red,
-                border: `1px solid ${C.red}`,
-                borderRadius: "9px",
-                padding: "10px 22px",
-                fontSize: "13px",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
+              className="arc-rej-btn px-4 sm:px-6 py-2.5 rounded-xl border text-xs sm:text-sm font-bold transition-all"
             >
               ✕ Reject
             </button>
