@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 
 export function ThemeToggle() {
   const { theme, setTheme, systemTheme } = useTheme();
-
-  // Use systemTheme to determine current theme if theme is 'system'
   const currentTheme = theme === "system" ? systemTheme : theme;
   const isDark = currentTheme === "dark";
 
@@ -16,7 +14,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="text-white hover:bg-blue-700"
+      className="text-foreground hover:bg-muted dark:text-white dark:hover:bg-blue-700/50"
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
       {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}

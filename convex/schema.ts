@@ -17,6 +17,8 @@ export default defineSchema({
     tokenIdentifier: v.string(),
     zoomLink: v.optional(v.string()),
     currentBookId: v.optional(v.id("books")),
+    subBookAId: v.optional(v.id("books")), // Sub A
+    subBookBId: v.optional(v.id("books")), // Sub B
 
     // ────────────────────────────────────────────────
     // NEW FIELD — Required for automated series progression

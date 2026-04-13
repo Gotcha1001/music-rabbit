@@ -7,7 +7,7 @@
   --foreground: 0 0% 3.9%;
   --card: 0 0% 100%;
   --card-foreground: 0 0% 3.9%;
-  --primary: 270 80% 60%; /* Adjusted: Deeper purple, less pinkish (lower saturation) */
+  --primary: 270 80% 40%; /* Adjusted: Deeper purple, less pinkish (lower saturation) */
   --primary-foreground: 0 0% 100%;
   --border: 0 0% 89.8%;
   --input: 0 0% 89.8%;
@@ -89,6 +89,10 @@ body,
 /* EXACT purple borders from original - DARK MODE */
 .dark .border-purple-glow {
   border-color: rgba(139, 92, 246, 0.3); /* Cooler purple */
+}
+
+.dark button[data-state="active"][role="tab"]::after {
+  box-shadow: 0 0 15px hsl(var(--primary));
 }
 
 /* Original gradient header backgrounds - DARK MODE */

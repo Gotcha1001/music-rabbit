@@ -3,18 +3,7 @@
 
 import { useUserDetail } from "@/context/UserDetailContext";
 import { useQuery } from "convex/react";
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   BarChart,
   Bar,
@@ -29,6 +18,57 @@ import { useState } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 
+/* ─────────────────────────────────────────────────────────────
+   !important overrides
+   Light = default  |  Dark = .dark prefix
+───────────────────────────────────────────────────────────── */
+const PAY_STYLES = `
+  .pay-page                     { background: #ffffff !important; }
+  .dark .pay-page               { background: linear-gradient(to bottom, #000000, #1a0030, #000000) !important; }
+
+  .pay-title                    { color: hsl(var(--foreground)) !important; }
+  .dark .pay-title              { color: #ede9fe !important; }
+
+  /* Summary + detail cards */
+  .pay-card                     { background: #ffffff !important; border-color: hsl(var(--border)) !important; box-shadow: 0 2px 12px rgba(0,0,0,0.07) !important; }
+  .dark .pay-card               { background: hsl(270 90% 5%) !important; border-color: rgba(109,40,217,0.3) !important; box-shadow: 0 0 24px rgba(139,92,246,0.1) !important; }
+
+  .pay-card-title               { color: hsl(var(--foreground)) !important; }
+  .dark .pay-card-title         { color: #ddd6fe !important; }
+
+  .pay-big-num                  { color: hsl(var(--foreground)) !important; }
+  .dark .pay-big-num            { color: #ede9fe !important; }
+
+  .pay-sub                      { color: hsl(var(--muted-foreground)) !important; }
+  .dark .pay-sub                { color: #a78bfa !important; }
+
+  /* Table header */
+  .pay-thead-row                { background: hsl(var(--primary)) !important; border-bottom-color: hsl(var(--primary)/0.2) !important; }
+  .dark .pay-thead-row          { background: rgba(76,29,149,0.4) !important; border-bottom-color: rgba(109,40,217,0.3) !important; }
+
+  .pay-th                       { color: #ffffff !important; font-weight: 600 !important; }
+  .dark .pay-th                 { color: #c4b5fd !important; }
+
+  /* Table body rows */
+  .pay-tr                       { border-bottom-color: hsl(var(--border)) !important; }
+  .pay-tr:hover                 { background: hsl(var(--muted)/0.4) !important; }
+  .dark .pay-tr                 { border-bottom-color: rgba(109,40,217,0.2) !important; }
+  .dark .pay-tr:hover           { background: rgba(76,29,149,0.15) !important; }
+
+  .pay-td                       { color: hsl(var(--foreground)) !important; }
+  .dark .pay-td                 { color: #ddd6fe !important; }
+
+  /* Export button */
+  .pay-export-btn               { border-color: hsl(var(--primary)/0.4) !important; color: hsl(var(--primary)) !important; background: transparent !important; }
+  .pay-export-btn:hover         { background: hsl(var(--primary)/0.08) !important; }
+  .dark .pay-export-btn         { border-color: rgba(124,58,237,0.5) !important; color: #c4b5fd !important; }
+  .dark .pay-export-btn:hover   { background: rgba(76,29,149,0.3) !important; }
+
+  /* Chart container */
+  .pay-chart-bg                 { background: hsl(var(--muted)/0.3) !important; border-radius: 0.75rem !important; }
+  .dark .pay-chart-bg           { background: rgba(76,29,149,0.1) !important; }
+`;
+
 export default function TeacherPayments() {
   const { userDetail } = useUserDetail();
 
@@ -36,40 +76,39 @@ export default function TeacherPayments() {
     api.payments.getEarningsSummary,
     userDetail?.role === "teacher"
       ? { teacherId: userDetail._id as Id<"users"> }
-      : "skip"
+      : "skip",
   );
-
   const detailedEarnings = useQuery(
     api.payments.getDetailedEarnings,
     userDetail?.role === "teacher"
       ? { teacherId: userDetail._id as Id<"users"> }
-      : "skip"
+      : "skip",
   );
-
   const [chartData] = useState([]);
 
   if (!userDetail) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading profile...
+      <div className="pay-page min-h-screen flex items-center justify-center">
+        <style>{PAY_STYLES}</style>
+        <p className="pay-sub">Loading profile...</p>
       </div>
     );
   }
-
   if (userDetail.role !== "teacher") {
     return (
-      <div className="flex min-h-screen items-center justify-center text-destructive">
-        Unauthorized
+      <div className="pay-page min-h-screen flex items-center justify-center">
+        <style>{PAY_STYLES}</style>
+        <p className="text-destructive">Unauthorized</p>
       </div>
     );
   }
-
   if (earningsSummary === undefined || detailedEarnings === undefined) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-96 w-full" />
+      <div className="pay-page min-h-screen container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <style>{PAY_STYLES}</style>
+        <Skeleton className="h-9 w-48 sm:w-64" />
+        <Skeleton className="h-36 sm:h-40 w-full rounded-xl" />
+        <Skeleton className="h-72 sm:h-96 w-full rounded-xl" />
       </div>
     );
   }
@@ -80,14 +119,12 @@ export default function TeacherPayments() {
       "Date,Time,Duration,Status,Earnings,Deduction\n" +
       detailedEarnings
         .map(
-          (earning) =>
-            `${earning.date},${earning.time},${earning.duration},${earning.status},${earning.earnings.toFixed(2)},${earning.deduction.toFixed(2)}`
+          (e) =>
+            `${e.date},${e.time},${e.duration},${e.status},${e.earnings.toFixed(2)},${e.deduction.toFixed(2)}`,
         )
         .join("\n");
-
-    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", encodeURI(csvContent));
     link.setAttribute("download", "earnings.csv");
     document.body.appendChild(link);
     link.click();
@@ -95,93 +132,158 @@ export default function TeacherPayments() {
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
-      <h1 className="text-3xl font-bold mb-8">My Earnings</h1>
+    <div className="pay-page min-h-screen">
+      <style>{PAY_STYLES}</style>
+      <div className="container mx-auto p-4 sm:p-6 max-w-6xl">
+        <h1 className="pay-title text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 font-serif">
+          My Earnings
+        </h1>
 
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Today&apos;s Earnings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-3xl font-bold">
-              ${earningsSummary.today.earnings.toFixed(2)}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {earningsSummary.today.hours.toFixed(1)} hours taught
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>This Month</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-3xl font-bold">
-              ${earningsSummary.month.earnings.toFixed(2)}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {earningsSummary.month.hours.toFixed(1)} hours • $
-              {earningsSummary.month.deductions.toFixed(2)} deductions
-            </p>
-          </CardContent>
-        </Card>
+        {/* ── Summary cards ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          {/* Today */}
+          <div className="pay-card rounded-xl border-2 overflow-hidden shadow-sm">
+            <div className="p-4 sm:p-6 border-b border-inherit">
+              <h2 className="pay-card-title text-base sm:text-lg font-bold">
+                Today&apos;s Earnings
+              </h2>
+            </div>
+            <div className="p-4 sm:p-6 space-y-1 sm:space-y-2">
+              <p className="pay-big-num text-2xl sm:text-3xl font-bold">
+                ${earningsSummary.today.earnings.toFixed(2)}
+              </p>
+              <p className="pay-sub text-xs sm:text-sm">
+                {earningsSummary.today.hours.toFixed(1)} hours taught
+              </p>
+            </div>
+          </div>
+
+          {/* Month */}
+          <div className="pay-card rounded-xl border-2 overflow-hidden shadow-sm">
+            <div className="p-4 sm:p-6 border-b border-inherit">
+              <h2 className="pay-card-title text-base sm:text-lg font-bold">
+                This Month
+              </h2>
+            </div>
+            <div className="p-4 sm:p-6 space-y-1 sm:space-y-2">
+              <p className="pay-big-num text-2xl sm:text-3xl font-bold">
+                ${earningsSummary.month.earnings.toFixed(2)}
+              </p>
+              <p className="pay-sub text-xs sm:text-sm">
+                {earningsSummary.month.hours.toFixed(1)} hours • $
+                {earningsSummary.month.deductions.toFixed(2)} deductions
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Chart ── */}
+        <div className="pay-card rounded-xl border-2 overflow-hidden shadow-sm mb-6 sm:mb-8">
+          <div className="p-4 sm:p-6 border-b border-inherit">
+            <h2 className="pay-card-title text-base sm:text-lg font-bold">
+              Earnings Chart
+            </h2>
+          </div>
+          <div className="p-4 sm:p-6">
+            <div className="pay-chart-bg p-2 sm:p-4">
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData}>
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar
+                    dataKey="earnings"
+                    fill="#7c3aed"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="deductions"
+                    fill="#f97316"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Detailed earnings table ── */}
+        <div className="pay-card rounded-xl border-2 overflow-hidden shadow-sm">
+          {/* Header row with export */}
+          <div className="p-4 sm:p-6 border-b border-inherit flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h2 className="pay-card-title text-base sm:text-lg font-bold">
+              Detailed Earnings
+            </h2>
+            <button
+              onClick={handleExport}
+              className="pay-export-btn flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all duration-200 w-full sm:w-auto justify-center"
+            >
+              <Download className="h-4 w-4 shrink-0" />
+              Export CSV
+            </button>
+          </div>
+
+          {/* Scrollable table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="pay-thead-row">
+                  {[
+                    "Date",
+                    "Time",
+                    "Duration (min)",
+                    "Status",
+                    "Earnings",
+                    "Deduction",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="pay-th px-4 sm:px-6 py-3 text-left font-serif whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {detailedEarnings.map((earning, index) => (
+                  <tr key={index} className="pay-tr border-b">
+                    <td className="pay-td px-4 sm:px-6 py-3 whitespace-nowrap">
+                      {earning.date}
+                    </td>
+                    <td className="pay-td px-4 sm:px-6 py-3 whitespace-nowrap">
+                      {earning.time}
+                    </td>
+                    <td className="pay-td px-4 sm:px-6 py-3 whitespace-nowrap">
+                      {earning.duration}
+                    </td>
+                    <td className="pay-td px-4 sm:px-6 py-3 whitespace-nowrap">
+                      {earning.status}
+                    </td>
+                    <td className="pay-td px-4 sm:px-6 py-3 font-semibold whitespace-nowrap">
+                      ${earning.earnings.toFixed(2)}
+                    </td>
+                    <td className="px-4 sm:px-6 py-3 font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">
+                      -${earning.deduction.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+                {detailedEarnings.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="pay-sub px-6 py-10 text-center text-sm"
+                    >
+                      No earnings recorded yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Earnings Chart</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="earnings" fill="#8884d8" />
-              <Bar dataKey="deductions" fill="#ff7300" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Detailed Earnings</CardTitle>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" /> Export CSV
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Duration (min)</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Earnings</TableHead>
-                <TableHead>Deduction</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {detailedEarnings.map((earning, index) => (
-                <TableRow key={index}>
-                  <TableCell>{earning.date}</TableCell>
-                  <TableCell>{earning.time}</TableCell>
-                  <TableCell>{earning.duration}</TableCell>
-                  <TableCell>{earning.status}</TableCell>
-                  <TableCell>${earning.earnings.toFixed(2)}</TableCell>
-                  <TableCell className="text-red-600">
-                    -${earning.deduction.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 }
