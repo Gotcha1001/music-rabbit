@@ -47,6 +47,7 @@ import { Doc, Id } from "../../../../../convex/_generated/dataModel";
 import { api } from "../../../../../convex/_generated/api";
 import TeacherStatsComponent from "../stats/page";
 import RecordingsTab from "@/app/components/RecordingsTab";
+import { ScheduleDownloadButton } from "@/app/components/Scheduledownloadbutton";
 
 /* ─────────────────────────────────────────────────────────────
    !important overrides
@@ -134,6 +135,9 @@ export default function TeacherDashboard() {
       api.schedules.getByTeacherWithTimezones,
       currentUser ? { teacherId: currentUser._id } : "skip",
     ) as Schedule[]) || [];
+
+  const allStudents = useQuery(api.users.getAllStudents) || [];
+  const allBooks = useQuery(api.books.getAll) || [];
 
   const messages =
     (useQuery(
@@ -247,21 +251,35 @@ export default function TeacherDashboard() {
                 <Card className="bg-card border-2 border-border shadow-lg">
                   <CardHeader className="pb-3 sm:pb-6">
                     <div className="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-2">
+                      {/* Left: Title + Camera Icon */}
                       <CardTitle className="flex items-center gap-2 sm:gap-3 text-card-foreground font-serif text-xl sm:text-2xl">
                         <Video className="h-5 w-5 sm:h-7 sm:w-7 text-primary shrink-0" />
                         Daily Schedule
                       </CardTitle>
-                      {!isToday && (
-                        <Button
-                          onClick={goToToday}
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 text-xs sm:text-sm"
-                        >
-                          <CalendarIcon className="h-3.5 w-3.5" />
-                          Today
-                        </Button>
-                      )}
+
+                      {/* Right Side: Download Button + Today Button */}
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <ScheduleDownloadButton
+                          schedules={schedules}
+                          teachers={[currentUser]}
+                          students={allStudents}
+                          books={allBooks}
+                          teacherId={currentUser._id}
+                          referenceDate={selectedDate}
+                        />
+
+                        {!isToday && (
+                          <Button
+                            onClick={goToToday}
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-xs sm:text-sm"
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            Today
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* ── Date navigator — deep purple via !important ── */}
