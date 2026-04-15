@@ -33,6 +33,7 @@ import {
   isFriday,
 } from "date-fns";
 import { ChevronLeft, ChevronRight, Trash2, X, Loader2 } from "lucide-react";
+import { ScheduleDownloadButton } from "./Scheduledownloadbutton";
 
 function TeacherScheduleManager() {
   const [selectedTeacherId, setSelectedTeacherId] =
@@ -204,6 +205,14 @@ function TeacherScheduleManager() {
                 ))}
               </SelectContent>
             </Select>
+            <ScheduleDownloadButton
+              schedules={schedules}
+              teachers={allTeachers}
+              students={students}
+              books={books}
+              teacherId={selectedTeacherId}
+              referenceDate={startOfWeekDate} // already in scope
+            />
           </div>
         </div>
 
@@ -312,85 +321,87 @@ function TeacherScheduleManager() {
               });
 
               return (
-                <div
-                  key={sched._id}
-                  className="mb-8 border rounded-lg overflow-hidden"
-                >
-                  {/* Header */}
-                  <div className="bg-muted/50 p-4 font-bold text-foreground">
-                    {teacherDisplayName} •{" "}
-                    {format(new Date(sched.date), "EEEE, MMMM d, yyyy")} (
-                    {filteredLessons.length} lessons)
-                  </div>
+                <>
+                  <div
+                    key={sched._id}
+                    className="mb-8 border rounded-lg overflow-hidden"
+                  >
+                    {/* Header */}
+                    <div className="bg-muted/50 p-4 font-bold text-foreground">
+                      {teacherDisplayName} •{" "}
+                      {format(new Date(sched.date), "EEEE, MMMM d, yyyy")} (
+                      {filteredLessons.length} lessons)
+                    </div>
 
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student</TableHead>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead>Book</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredLessons.map((lesson, idx) => {
-                        const student = students.find(
-                          (s: Doc<"users">) => s._id === lesson.studentId,
-                        );
-                        const studentDisplayName =
-                          student?.name ||
-                          student?.email.split("@")[0] ||
-                          "Unknown";
-                        const book = lesson.bookId
-                          ? books.find(
-                              (b: Doc<"books">) => b._id === lesson.bookId,
-                            )
-                          : null;
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Student</TableHead>
+                          <TableHead>Time</TableHead>
+                          <TableHead>Duration</TableHead>
+                          <TableHead>Book</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredLessons.map((lesson, idx) => {
+                          const student = students.find(
+                            (s: Doc<"users">) => s._id === lesson.studentId,
+                          );
+                          const studentDisplayName =
+                            student?.name ||
+                            student?.email.split("@")[0] ||
+                            "Unknown";
+                          const book = lesson.bookId
+                            ? books.find(
+                                (b: Doc<"books">) => b._id === lesson.bookId,
+                              )
+                            : null;
 
-                        return (
-                          <TableRow key={idx}>
-                            <TableCell>{studentDisplayName}</TableCell>
-                            <TableCell>{lesson.time}</TableCell>
-                            <TableCell>{lesson.duration} min</TableCell>
-                            <TableCell>{book?.title || "---"}</TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  lesson.state === "completed"
-                                    ? "default"
-                                    : lesson.state === "scheduled"
-                                      ? "secondary"
-                                      : "destructive"
-                                }
-                              >
-                                {lesson.state}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={async () => {
-                                  if (confirm("Cancel this lesson?")) {
-                                    await adminDeleteLesson({
-                                      scheduleId: sched._id,
-                                      lessonId: lesson.lessonId,
-                                    });
-                                    toast.success("Lesson cancelled");
+                          return (
+                            <TableRow key={idx}>
+                              <TableCell>{studentDisplayName}</TableCell>
+                              <TableCell>{lesson.time}</TableCell>
+                              <TableCell>{lesson.duration} min</TableCell>
+                              <TableCell>{book?.title || "---"}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    lesson.state === "completed"
+                                      ? "default"
+                                      : lesson.state === "scheduled"
+                                        ? "secondary"
+                                        : "destructive"
                                   }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                                >
+                                  {lesson.state}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={async () => {
+                                    if (confirm("Cancel this lesson?")) {
+                                      await adminDeleteLesson({
+                                        scheduleId: sched._id,
+                                        lessonId: lesson.lessonId,
+                                      });
+                                      toast.success("Lesson cancelled");
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               );
             })}
 
