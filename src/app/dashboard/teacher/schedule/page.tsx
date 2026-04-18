@@ -48,6 +48,7 @@ import { api } from "../../../../../convex/_generated/api";
 import TeacherStatsComponent from "../stats/page";
 import RecordingsTab from "@/app/components/RecordingsTab";
 import { ScheduleDownloadButton } from "@/app/components/Scheduledownloadbutton";
+import { WavyBackground } from "@/components/ui/wavy-background";
 
 /* ─────────────────────────────────────────────────────────────
    !important overrides
@@ -196,9 +197,22 @@ export default function TeacherDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
       <style>{TDASH_STYLES}</style>
-      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 max-w-7xl">
+      <div className="pointer-events-none absolute inset-0">
+        <WavyBackground
+          colors={["#7c3aed", "#6d28d9", "#22054e", "#c4b5fd", "#8b5cf6"]}
+          backgroundFill="transparent"
+          blur={4}
+          speed="slow"
+          waveOpacity={0.06}
+          waveWidth={60}
+          waveYOffset={350}
+          containerClassName="h-full"
+          className="hidden"
+        />
+      </div>
+      <div className="relative z-10 container mx-auto px-4 sm:px-6 py-4 sm:py-6 max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -212,7 +226,7 @@ export default function TeacherDashboard() {
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-8 sm:mb-12 text-primary font-serif leading-tight"
+          className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-8 sm:mb-12 text-foreground font-serif leading-tight"
         >
           Welcome back, {clerkUser?.firstName || "Teacher"}! 🎵
         </motion.h1>
