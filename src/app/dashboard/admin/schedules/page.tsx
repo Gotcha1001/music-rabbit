@@ -434,6 +434,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 import TeacherScheduleManager from "@/app/components/TeacherScheduleManager";
 import { format } from "date-fns";
 import { BlankDayButton } from "@/app/components/BlankDayButton";
+import { WavyBackground } from "@/components/ui/wavy-background";
 
 /* ─────────────────────────────────────────────────────────────
    !important overrides
@@ -534,9 +535,20 @@ export default function AdminSchedulesPage() {
   };
 
   return (
-    <div className="asch-page min-h-screen">
+    <div className="asch-page min-h-screen relative">
       <style>{ADMIN_SCH_STYLES}</style>
-      <div className="space-y-6 sm:space-y-8 p-4 sm:p-6">
+      <WavyBackground
+        colors={["#7c3aed", "#6d28d9", "#22054e", "#c4b5fd", "#8b5cf6"]}
+        backgroundFill="transparent"
+        blur={4}
+        speed="slow"
+        waveOpacity={0.06}
+        waveWidth={60}
+        waveYOffset={350}
+        containerClassName="fixed inset-0 pointer-events-none"
+        className="hidden"
+      />
+      <div className="relative z-10 space-y-6 sm:space-y-8 p-4 sm:p-6">
         <BulkSchedulingSection />
 
         <BlankDayButton />
