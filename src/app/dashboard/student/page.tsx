@@ -1384,6 +1384,7 @@ import { TeacherProfileCard } from "@/app/components/TeacherProfileCard";
 import { CancelLessonDialog } from "@/app/components/CancelLessonDialog";
 import { StudentRescheduleDialog } from "@/app/components/StudentRescheduleDialog";
 import { ScheduleDownloadButton } from "@/app/components/Scheduledownloadbutton";
+import { WavyBackground } from "@/components/ui/wavy-background";
 
 const GLOBAL_STYLES = `
   .date-nav                   { background: hsl(270, 80%, 30%) !important; border-color: hsl(270, 70%, 40%) !important; }
@@ -1568,9 +1569,20 @@ export default function StudentDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-background dark:bg-gradient-to-b dark:from-black dark:via-purple-950 dark:to-black">
+    <div className="min-h-screen bg-background dark:bg-gradient-to-b dark:from-black dark:via-purple-950 dark:to-black relative">
       <style>{GLOBAL_STYLES}</style>
-      <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-6 max-w-7xl">
+      <WavyBackground
+        colors={["#7c3aed", "#6d28d9", "#22054e", "#c4b5fd", "#8b5cf6"]}
+        backgroundFill="transparent"
+        blur={4}
+        speed="slow"
+        waveOpacity={0.06}
+        waveWidth={60}
+        waveYOffset={350}
+        containerClassName="fixed inset-0 pointer-events-none"
+        className="hidden"
+      />
+      <div className="relative z-10 container mx-auto px-4 sm:px-6 py-4 sm:py-6 max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
