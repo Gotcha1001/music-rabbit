@@ -159,6 +159,81 @@
 //   missed_student: "Missed by Student",
 // };
 
+// // ── Slot label config for the read-only book display ──────────────────────────
+// const SLOT_DISPLAY = {
+//   main: {
+//     label: "Main Book",
+//     accent: "text-purple-600 dark:text-purple-400",
+//     badge:
+//       "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
+//   },
+//   subA: {
+//     label: "Sub Book A",
+//     accent: "text-emerald-600 dark:text-emerald-400",
+//     badge:
+//       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+//   },
+//   subB: {
+//     label: "Sub Book B",
+//     accent: "text-rose-600 dark:text-rose-400",
+//     badge: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+//   },
+// } as const;
+
+// // ── Small reusable book row shown in the read-only display section ─────────────
+// function BookRow({
+//   slot,
+//   title,
+//   level,
+//   instrument,
+//   driveViewLink,
+// }: {
+//   slot: keyof typeof SLOT_DISPLAY;
+//   title?: string;
+//   level?: number;
+//   instrument?: string;
+//   driveViewLink?: string;
+// }) {
+//   const cfg = SLOT_DISPLAY[slot];
+//   if (!title) return null;
+//   return (
+//     <div className="lesson-book-card p-4 rounded-lg border flex items-center justify-between gap-3">
+//       <div className="flex items-center gap-3 min-w-0">
+//         <BookOpen className={`h-5 w-5 shrink-0 ${cfg.accent}`} />
+//         <div className="min-w-0">
+//           <div className="flex items-center gap-2 flex-wrap">
+//             <span
+//               className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.badge}`}
+//             >
+//               {cfg.label}
+//             </span>
+//           </div>
+//           <p className="lesson-book-text font-semibold mt-0.5 truncate">
+//             {title}
+//           </p>
+//           {(level || instrument) && (
+//             <p className="lesson-book-sub text-sm">
+//               {level ? `Level ${level}` : ""}
+//               {level && instrument ? " • " : ""}
+//               {instrument ?? ""}
+//             </p>
+//           )}
+//         </div>
+//       </div>
+//       {driveViewLink && (
+//         <Button
+//           size="sm"
+//           variant="outline"
+//           onClick={() => window.open(driveViewLink, "_blank")}
+//           className="shrink-0 border-primary/40 text-primary hover:bg-primary/10 dark:border-purple-600/50 dark:text-purple-300"
+//         >
+//           Open PDF
+//         </Button>
+//       )}
+//     </div>
+//   );
+// }
+
 // export default function LessonDetail() {
 //   const params = useParams();
 //   const scheduleId = params.scheduleId as Id<"schedules">;
@@ -186,6 +261,20 @@
 //     scheduleId,
 //     lessonId,
 //   });
+
+//   // ── Sub-book details (fetched from book IDs on the student doc) ──────────────
+//   // These queries resolve the subBookAId / subBookBId stored on the user record
+//   // into full book objects so we can show title / level / instrument in the UI.
+//   // ✅ CORRECT
+//   const subBookA = useQuery(
+//     api.books.getById,
+//     student?.subBookAId ? { id: student.subBookAId } : "skip",
+//   );
+
+//   const subBookB = useQuery(
+//     api.books.getById,
+//     student?.subBookBId ? { id: student.subBookBId } : "skip",
+//   );
 
 //   const submitRating = useMutation(api.lessonRatings.submit);
 //   const updateLesson = useMutation(api.schedules.updateLesson);
@@ -262,7 +351,9 @@
 //     if (lesson.state !== "scheduled") {
 //       toast.info(
 //         `Lesson is already ${stateLabels[lesson.state].toLowerCase()}`,
-//         { description: "You can only start scheduled lessons." },
+//         {
+//           description: "You can only start scheduled lessons.",
+//         },
 //       );
 //       return;
 //     }
@@ -447,6 +538,12 @@
 //   const lessonDateTimeFormatted = lessonDateTime
 //     ? formatTimeInTimezone(lessonDateTime, student.timezone || "UTC")
 //     : "";
+
+//   // ── Derived booleans for whether any book slot is populated ──────────────────
+//   const hasMainBook = !!lesson.bookId;
+//   const hasSubBookA = !!student.subBookAId;
+//   const hasSubBookB = !!student.subBookBId;
+//   const hasAnyBook = hasMainBook || hasSubBookA || hasSubBookB;
 
 //   return (
 //     <div className="lesson-page min-h-screen relative">
@@ -723,50 +820,74 @@
 //               </div>
 //             )}
 
-//             {/* Book section */}
+//             {/* ── Book section ──────────────────────────────────────────────────── */}
 //             <div className="space-y-4 pt-4 border-t lesson-border-divider">
 //               <Label className="lesson-text-label text-lg font-semibold">
-//                 Assigned Book
+//                 Assigned Books
 //               </Label>
-//               {lesson.bookId ? (
-//                 <div className="lesson-book-card p-4 rounded-lg border flex items-center justify-between">
-//                   <div className="flex items-center gap-3">
-//                     <BookOpen className="h-6 w-6 lesson-book-icon shrink-0" />
-//                     <div>
-//                       <p className="lesson-book-text font-semibold">
-//                         {lesson.bookTitle || "Loading book..."}
-//                       </p>
-//                       {lesson.bookLevel && (
-//                         <p className="lesson-book-sub text-sm">
-//                           Level {lesson.bookLevel} • {lesson.bookInstrument}
-//                         </p>
-//                       )}
-//                     </div>
-//                   </div>
-//                   {lesson.bookTitle && (
-//                     <Button
-//                       size="sm"
-//                       variant="outline"
-//                       onClick={() =>
-//                         window.open(lesson.driveViewLink || "#", "_blank")
-//                       }
-//                       className="border-primary/40 text-primary hover:bg-primary/10 dark:border-purple-600/50 dark:text-purple-300"
-//                     >
-//                       Open PDF
-//                     </Button>
+
+//               {/* Read-only display — all three slots */}
+//               {hasAnyBook ? (
+//                 <div className="space-y-2">
+//                   {/* Main book — sourced from lesson.bookId (per-lesson) */}
+//                   {hasMainBook && (
+//                     <BookRow
+//                       slot="main"
+//                       title={lesson.bookTitle}
+//                       level={lesson.bookLevel}
+//                       instrument={lesson.bookInstrument}
+//                       driveViewLink={lesson.driveViewLink}
+//                     />
+//                   )}
+
+//                   {/* Sub Book A — sourced from student.subBookAId (per-student) */}
+//                   {hasSubBookA && (
+//                     <BookRow
+//                       slot="subA"
+//                       title={subBookA?.title}
+//                       level={subBookA?.levelNumber}
+//                       instrument={subBookA?.instrument}
+//                       driveViewLink={subBookA?.driveViewLink}
+//                     />
+//                   )}
+
+//                   {/* Sub Book B — sourced from student.subBookBId (per-student) */}
+//                   {hasSubBookB && (
+//                     <BookRow
+//                       slot="subB"
+//                       title={subBookB?.title}
+//                       level={subBookB?.levelNumber}
+//                       instrument={subBookB?.instrument}
+//                       driveViewLink={subBookB?.driveViewLink}
+//                     />
 //                   )}
 //                 </div>
 //               ) : (
+//                 /* Empty state — shown when no slot is assigned */
 //                 <div className="lesson-book-empty p-8 text-center rounded-lg border-2 border-dashed">
 //                   <BookOpen className="h-12 w-12 mx-auto lesson-book-icon opacity-50 mb-3" />
-//                   <p className="lesson-book-sub">No book assigned yet</p>
+//                   <p className="lesson-book-sub">No books assigned yet</p>
 //                 </div>
 //               )}
+
+//               {/*
+//                * BookSelector — teacher only.
+//                *
+//                * Props:
+//                *   currentBookId  → lesson's main book (per-lesson, stored in schedules)
+//                *   subBookAId     → student's Sub A book (per-student, stored in users)
+//                *   subBookBId     → student's Sub B book (per-student, stored in users)
+//                *   studentId      → needed so BookSelector can call updateStudentBooks
+//                *                    mutation for the sub slots
+//                */}
 //               {isTeacher && (
 //                 <BookSelector
 //                   currentBookId={lesson.bookId}
+//                   subBookAId={student.subBookAId ?? null}
+//                   subBookBId={student.subBookBId ?? null}
 //                   scheduleId={scheduleId}
 //                   lessonId={lessonId}
+//                   studentId={lesson.studentId}
 //                 />
 //               )}
 //             </div>
@@ -1355,6 +1476,7 @@ export default function LessonDetail() {
   const submitRating = useMutation(api.lessonRatings.submit);
   const updateLesson = useMutation(api.schedules.updateLesson);
   const startLessonMutation = useMutation(api.schedules.startLesson);
+  const studentJoinMutation = useMutation(api.schedules.studentJoin);
   const endLessonMutation = useMutation(api.schedules.endLesson);
   const markMissedMutation = useMutation(api.schedules.markMissed);
   const createLessonMemo = useMutation(api.tutorsMemos.createLessonMemo);
@@ -1399,6 +1521,30 @@ export default function LessonDetail() {
   useEffect(() => {
     setStudentContent(studentInfo?.content || "");
   }, [studentInfo]);
+
+  // ✅ Attendance: record that the student is present as soon as they have the
+  // lesson page open while the lesson is in progress. Without this, joinedAt is
+  // never set and the cron (checkMissedLessons) marks the student as a no-show.
+  useEffect(() => {
+    if (!isStudent || !lesson) return;
+    const canRecord =
+      lesson.joinedAt === undefined &&
+      (lesson.state === "in_progress" ||
+        (lesson.state === "missed_student" &&
+          lesson.status === "no_answer_on_time"));
+    if (!canRecord) return;
+
+    studentJoinMutation({ scheduleId, lessonId }).catch((err) => {
+      console.warn("Could not record student join", err);
+    });
+  }, [
+    isStudent,
+    lesson?.state,
+    lesson?.status,
+    lesson?.joinedAt,
+    scheduleId,
+    lessonId,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!lesson || !teacher || !student) {
     return (
@@ -1513,6 +1659,14 @@ export default function LessonDetail() {
         });
       } catch (err) {
         console.warn("Could not save Zoom link", err);
+      }
+    }
+    // ✅ Student clicked "Join Zoom Meeting" -> make sure attendance is recorded
+    if (isStudent && lesson.joinedAt === undefined) {
+      try {
+        await studentJoinMutation({ scheduleId, lessonId });
+      } catch (err) {
+        console.warn("Could not record student join", err);
       }
     }
     window.open(zoomLink, "_blank", "noopener,noreferrer");

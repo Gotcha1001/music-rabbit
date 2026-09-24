@@ -1,4 +1,3 @@
-// // export { generateRecurringDates };
 // import { v } from "convex/values";
 // import {
 //   internalMutation,
@@ -527,8 +526,30 @@
 //       .query("users")
 //       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
 //       .first();
-
 //     if (caller?.role !== "admin") throw new Error("Admin only");
+
+//     // ── Credit check ──────────────────────────────────────────────────────
+//     // Admin cannot book a lesson the student has not paid for.
+//     // Free draw packages already have status=active so they pass naturally.
+//     const activePackage = await ctx.db
+//       .query("studentPackages")
+//       .withIndex("by_student", (q) => q.eq("studentId", args.lesson.studentId))
+//       .filter((q) =>
+//         q.and(
+//           q.eq(q.field("status"), "active"),
+//           q.gte(q.field("remainingMinutes"), args.lesson.duration),
+//         ),
+//       )
+//       .first();
+
+//     if (!activePackage) {
+//       throw new Error(
+//         `Cannot add lesson: student has no active package with ` +
+//           `${args.lesson.duration} minutes remaining. ` +
+//           `Purchase or credit a package first.`,
+//       );
+//     }
+//     // ──────────────────────────────────────────────────────────────────────
 
 //     let schedule = await ctx.db
 //       .query("schedules")
@@ -555,7 +576,6 @@
 //     const lessonId =
 //       Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-//     // Timezone-aware scheduledTime
 //     const scheduledTime = localToUtcMs(
 //       args.date,
 //       args.lesson.time,
@@ -584,6 +604,16 @@
 
 //     await ctx.db.patch(schedule._id, {
 //       lessons: [...schedule.lessons, newLesson],
+//     });
+
+//     // ── Deduct minutes ────────────────────────────────────────────────────
+//     const newRemaining = Math.max(
+//       0,
+//       activePackage.remainingMinutes - args.lesson.duration,
+//     );
+//     await ctx.db.patch(activePackage._id, {
+//       remainingMinutes: newRemaining,
+//       minutesRemaining: newRemaining,
 //     });
 
 //     return { scheduleId: schedule._id, lessonId };
@@ -1805,30 +1835,51 @@
 //   handler: async (ctx, { startDate, weeksAhead }) => {
 //     const identity = await ctx.auth.getUserIdentity();
 //     if (!identity) throw new Error("Unauthorized");
+
 //     const admin = await ctx.db
 //       .query("users")
 //       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
 //       .first();
-//     if (!admin || admin.role !== "admin") {
+//     if (!admin || admin.role !== "admin")
 //       throw new Error("Admin access required");
-//     }
+
 //     const allTeachers = await ctx.db
 //       .query("users")
 //       .withIndex("by_role", (q) => q.eq("role", "teacher"))
 //       .collect();
+
 //     const allStudents = await ctx.db
 //       .query("users")
 //       .withIndex("by_role", (q) => q.eq("role", "student"))
 //       .collect();
+
+//     // Build instrument → teachers[] map (only teachers with timezone + instrument)
+//     type TeacherDoc = (typeof allTeachers)[number];
+//     const teachersByInstrument: Record<string, TeacherDoc[]> = {};
+//     for (const teacher of allTeachers) {
+//       if (!teacher.timezone || !teacher.instrument) continue;
+//       if (!teachersByInstrument[teacher.instrument]) {
+//         teachersByInstrument[teacher.instrument] = [];
+//       }
+//       teachersByInstrument[teacher.instrument].push(teacher);
+//     }
+
+//     // Round-robin index per instrument — ensures equal distribution
+//     const rrIndex: Record<string, number> = {};
+//     const teacherLessonCount: Record<string, number> = {};
+
 //     let totalCreated = 0;
 //     let totalSkipped = 0;
+
 //     const results: {
 //       studentName: string;
 //       teacherName: string;
 //       lessonsCreated: number;
 //       reason?: string;
 //     }[] = [];
+
 //     for (const student of allStudents) {
+//       // 1. Active package
 //       const activePackage = await ctx.db
 //         .query("studentPackages")
 //         .withIndex("by_student", (q) => q.eq("studentId", student._id))
@@ -1839,6 +1890,7 @@
 //           ),
 //         )
 //         .first();
+
 //       if (!activePackage) {
 //         results.push({
 //           studentName: student.name || student.email,
@@ -1848,36 +1900,72 @@
 //         });
 //         continue;
 //       }
-//       const teacher = allTeachers.find(
-//         (t) => t.instrument === student.instrument && t.timezone,
-//       );
-//       if (!teacher) {
+
+//       // 2. Pick teacher — honour currentTeacher preference, otherwise round-robin
+//       const instrument = student.instrument || "";
+//       const pool = teachersByInstrument[instrument] || [];
+
+//       if (pool.length === 0) {
 //         results.push({
 //           studentName: student.name || student.email,
 //           teacherName: "N/A",
 //           lessonsCreated: 0,
-//           reason: `No teacher for ${student.instrument}`,
+//           reason: `No teacher available for ${instrument}`,
 //         });
 //         continue;
 //       }
-//       const dates = generateRecurringDates(
+
+//       let teacher: TeacherDoc;
+//       const preferredTeacher = student.currentTeacher
+//         ? pool.find((t) => t._id === student.currentTeacher)
+//         : undefined;
+
+//       if (preferredTeacher) {
+//         teacher = preferredTeacher;
+//       } else {
+//         if (rrIndex[instrument] === undefined) rrIndex[instrument] = 0;
+//         teacher = pool[rrIndex[instrument] % pool.length];
+//         rrIndex[instrument]++;
+//       }
+
+//       // 3. Cap lessons to what the package can cover
+//       const maxLessons = Math.floor(
+//         activePackage.remainingMinutes / activePackage.minutesPerLesson,
+//       );
+//       if (maxLessons === 0) {
+//         results.push({
+//           studentName: student.name || student.email,
+//           teacherName: teacher.name || teacher.email,
+//           lessonsCreated: 0,
+//           reason: "Package minutes exhausted",
+//         });
+//         continue;
+//       }
+
+//       const allDates = generateRecurringDates(
 //         startDate,
 //         weeksAhead,
 //         activePackage.lessonsPerWeek,
 //       );
-//       let studentLessonsCreated = 0;
+//       const datesToSchedule = allDates.slice(0, maxLessons);
+
+//       let studentCreated = 0;
 //       let studentSkipped = 0;
-//       for (const date of dates) {
+//       let minutesDeducted = 0;
+
+//       for (const date of datesToSchedule) {
 //         if (!isWorkingDay(date)) {
 //           studentSkipped++;
 //           continue;
 //         }
+
 //         let schedule = await ctx.db
 //           .query("schedules")
 //           .withIndex("by_teacher_date", (q) =>
 //             q.eq("teacherId", teacher._id).eq("date", date),
 //           )
 //           .first();
+
 //         if (!schedule) {
 //           const newId = await ctx.db.insert("schedules", {
 //             teacherId: teacher._id,
@@ -1887,26 +1975,26 @@
 //           schedule = await ctx.db.get(newId);
 //           if (!schedule) continue;
 //         }
-//         const occupied: { startMin: number; endMin: number }[] = [];
-//         for (const lesson of schedule.lessons) {
-//           const startMin = timeToMinutes(lesson.time);
-//           const endMin = startMin + lesson.duration + 1;
-//           occupied.push({ startMin, endMin });
-//         }
+
+//         const occupied = schedule.lessons.map((l) => ({
+//           startMin: timeToMinutes(l.time),
+//           endMin: timeToMinutes(l.time) + l.duration + 1,
+//         }));
+
 //         const availableTime = findNextAvailableSlot(
 //           occupied,
 //           activePackage.minutesPerLesson,
 //           date,
 //           teacher.timezone ?? "",
 //         );
+
 //         if (!availableTime) {
 //           studentSkipped++;
 //           continue;
 //         }
+
 //         const lessonId =
 //           Date.now().toString(36) + Math.random().toString(36).slice(2);
-
-//         // Timezone-aware scheduledTime
 //         const scheduledTime = localToUtcMs(
 //           date,
 //           availableTime,
@@ -1929,28 +2017,56 @@
 //         await ctx.db.patch(schedule._id, {
 //           lessons: [...schedule.lessons, newLesson],
 //         });
-//         studentLessonsCreated++;
+
+//         studentCreated++;
+//         minutesDeducted += activePackage.minutesPerLesson;
 //         totalCreated++;
+//         teacherLessonCount[teacher._id] =
+//           (teacherLessonCount[teacher._id] ?? 0) + 1;
 //       }
+
+//       // 4. Deduct minutes from package
+//       if (minutesDeducted > 0) {
+//         const newRemaining = Math.max(
+//           0,
+//           activePackage.remainingMinutes - minutesDeducted,
+//         );
+//         await ctx.db.patch(activePackage._id, {
+//           remainingMinutes: newRemaining,
+//           minutesRemaining: newRemaining,
+//         });
+//       }
+
+//       // 5. Assign teacher to student
 //       if (student.currentTeacher !== teacher._id) {
 //         await ctx.db.patch(student._id, { currentTeacher: teacher._id });
 //       }
+
+//       totalSkipped += studentSkipped;
 //       results.push({
 //         studentName: student.name || student.email,
 //         teacherName: teacher.name || teacher.email,
-//         lessonsCreated: studentLessonsCreated,
+//         lessonsCreated: studentCreated,
 //         reason:
 //           studentSkipped > 0
 //             ? `${studentSkipped} slots unavailable`
 //             : undefined,
 //       });
-//       totalSkipped += studentSkipped;
 //     }
+
+//     const teacherSummary = allTeachers
+//       .filter((t) => teacherLessonCount[t._id])
+//       .map((t) => ({
+//         teacherName: t.name || t.email,
+//         lessonsAssigned: teacherLessonCount[t._id],
+//       }));
+
 //     return {
 //       success: true,
 //       totalCreated,
 //       totalSkipped,
 //       studentsProcessed: allStudents.length,
+//       teacherSummary,
 //       results,
 //     };
 //   },
@@ -2017,24 +2133,6 @@
 // });
 
 // export { generateRecurringDates };
-// ============================================================================
-// FILE: convex/schedules.ts  — REPLACE these two exports
-//
-// Changes vs the original:
-//   autoScheduleEntireCompany:
-//     - FIXED: Was using .find() → same teacher got all students → slots filled → 0 lessons created
-//     - NOW:   Round-robin per instrument so workload is spread equally
-//     - NOW:   Respects student.currentTeacher preference (assigns preferred teacher first)
-//     - NOW:   Deducts remainingMinutes from package after booking (was never done before)
-//     - NOW:   Skips students who already have lessons in the date window (no duplicates)
-//     - NOW:   Returns per-teacher lesson counts so admin can see the distribution
-//
-//   addLesson (admin manual add):
-//     - FIXED: No package check existed — admin could book unlimited unpaid lessons
-//     - NOW:   Checks remainingMinutes >= duration before inserting
-//     - NOW:   Throws a clear descriptive error if package is insufficient
-//     - NOW:   Deducts minutes after successful insert
-// ============================================================================
 import { v } from "convex/values";
 import {
   internalMutation,
@@ -3455,21 +3553,49 @@ export const studentJoin = mutation({
 
     if (oldLesson.studentId !== student._id) throw new Error("Not your lesson");
 
-    if (oldLesson.state !== "in_progress") {
-      throw new Error("Can only join in-progress lessons");
+    // Idempotent: already recorded, nothing to do.
+    if (oldLesson.joinedAt !== undefined) return oldLesson;
+
+    const now = Date.now();
+
+    // Normal case: teacher has started the lesson and the student joins.
+    if (oldLesson.state === "in_progress") {
+      const newLesson: Lesson = { ...oldLesson, joinedAt: now };
+      const updatedLessons = [...schedule.lessons];
+      updatedLessons[lessonIndex] = newLesson;
+      await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+      return newLesson;
     }
 
-    const newLesson: Lesson = {
-      ...oldLesson,
-      joinedAt: Date.now(),
-    };
+    // Recovery case: the cron auto-flagged the student as a no-show (5 min
+    // rule) but the student actually joined while the lesson window is still
+    // open. Only auto-flags are reverted (cron never sets markedBy) - if a
+    // teacher/admin marked it manually we respect that decision.
+    const withinLessonWindow =
+      oldLesson.startedAt !== undefined &&
+      now < oldLesson.startedAt + oldLesson.duration * 60 * 1000;
 
-    const updatedLessons = [...schedule.lessons];
-    updatedLessons[lessonIndex] = newLesson;
+    if (
+      oldLesson.state === "missed_student" &&
+      oldLesson.status === "no_answer_on_time" &&
+      !oldLesson.markedBy &&
+      withinLessonWindow
+    ) {
+      const restored: Lesson = {
+        ...oldLesson,
+        state: "in_progress",
+        status: oldLesson.onTime === false ? "teacher_late" : "completed",
+        joinedAt: now,
+        endedAt: undefined,
+        actualMinutes: undefined,
+      };
+      const updatedLessons = [...schedule.lessons];
+      updatedLessons[lessonIndex] = restored;
+      await ctx.db.patch(scheduleId, { lessons: updatedLessons });
+      return restored;
+    }
 
-    await ctx.db.patch(scheduleId, { lessons: updatedLessons });
-
-    return newLesson;
+    throw new Error("Can only join in-progress lessons");
   },
 });
 
