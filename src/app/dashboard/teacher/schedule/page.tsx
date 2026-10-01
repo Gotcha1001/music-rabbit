@@ -569,7 +569,11 @@ function ScheduleTable({
                         asChild
                         className="bg-primary hover:bg-primary/90 text-primary-foreground border border-primary shadow-sm text-xs sm:text-sm"
                       >
-                        <Link href={`/dashboard/lesson/${s._id}/${l.lessonId}`}>
+                        <Link
+                          href={`/dashboard/lesson/${s._id}/${l.lessonId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           <Video className="h-3.5 w-3.5 mr-1.5" />
                           View
                         </Link>
@@ -624,7 +628,11 @@ function ScheduleTable({
                     asChild
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground border-primary text-sm"
                   >
-                    <Link href={`/dashboard/lesson/${s._id}/${l.lessonId}`}>
+                    <Link
+                      href={`/dashboard/lesson/${s._id}/${l.lessonId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <Video className="h-4 w-4 mr-2" />
                       View Details
                     </Link>
