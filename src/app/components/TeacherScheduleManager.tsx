@@ -23,15 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import {
-  format,
-  addDays,
-  isMonday,
-  isTuesday,
-  isWednesday,
-  isThursday,
-  isFriday,
-} from "date-fns";
+import { format, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight, Trash2, X, Loader2 } from "lucide-react";
 import { ScheduleDownloadButton } from "./Scheduledownloadbutton";
 
@@ -68,40 +60,42 @@ function TeacherScheduleManager() {
 
   const adminDeleteLesson = useMutation(api.schedules.adminDeleteLesson);
 
-  // Calculate current week range
+  // ──────────────────────────────────────────────────────────────
+  // FIXED week calculation
+  // - Monday is the start of the week (weekStartsOn: 1)
+  // - Full 7-day window (Mon → Sun) – weekends included
+  // - All comparisons done with yyyy-MM-dd strings (no time-of-day bugs)
+  // ──────────────────────────────────────────────────────────────
   const today = new Date();
-  const startOfWeekDate = addDays(
-    today,
-    -today.getDay() + currentWeekOffset * 7 + 1,
-  );
-  const endOfWeekDate = addDays(startOfWeekDate, 4);
+  // Base week that contains "today", then shift by offset
+  const baseWeekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
+  const startOfWeekDate = addDays(baseWeekStart, currentWeekOffset * 7);
+  const endOfWeekDate = endOfWeek(startOfWeekDate, { weekStartsOn: 1 }); // Sunday
+
+  // Pure date strings for reliable comparison
+  const startStr = format(startOfWeekDate, "yyyy-MM-dd");
+  const endStr = format(endOfWeekDate, "yyyy-MM-dd");
 
   const weekLabel = `${format(startOfWeekDate, "MMM d")} - ${format(endOfWeekDate, "MMM d, yyyy")}`;
 
-  // Filter schedules by teacher and week
+  // Filter schedules by teacher and week (string comparison, all days)
   let filteredSchedules = schedules.filter((sched) => {
     if (selectedTeacherId && sched.teacherId !== selectedTeacherId)
       return false;
 
-    const schedDate = new Date(sched.date);
-    return (
-      schedDate >= startOfWeekDate &&
-      schedDate <= endOfWeekDate &&
-      (isMonday(schedDate) ||
-        isTuesday(schedDate) ||
-        isWednesday(schedDate) ||
-        isThursday(schedDate) ||
-        isFriday(schedDate))
-    );
+    // sched.date is already "yyyy-MM-dd"
+    return sched.date >= startStr && sched.date <= endStr;
   });
 
   // Sort by date ascending
-  filteredSchedules = filteredSchedules.sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  filteredSchedules = filteredSchedules.sort((a, b) =>
+    a.date.localeCompare(b.date),
   );
 
   // Filter by search term
   const searchFilteredSchedules = filteredSchedules.filter((sched) => {
+    if (!searchTerm.trim()) return true;
+
     const hasMatchingLesson = sched.lessons.some((lesson) => {
       const student = students.find(
         (s: Doc<"users">) => s._id === lesson.studentId,
@@ -118,7 +112,7 @@ function TeacherScheduleManager() {
         studentDisplayName.toLowerCase().includes(lowerSearch) ||
         lesson.time.toLowerCase().includes(lowerSearch) ||
         bookTitle.toLowerCase().includes(lowerSearch) ||
-        lesson.state.toLowerCase().includes(lowerSearch)
+        (lesson.state || "").toLowerCase().includes(lowerSearch)
       );
     });
     return hasMatchingLesson;
@@ -135,7 +129,7 @@ function TeacherScheduleManager() {
     ? allTeachers.find((t) => t._id === selectedTeacherId)
     : null;
 
-  // Load more function - simplified
+  // Load more function
   const loadMore = useCallback(() => {
     if (isLoadingMore) return;
 
@@ -176,6 +170,22 @@ function TeacherScheduleManager() {
     };
   }, [hasMore, isLoadingMore, loadMore]);
 
+  // Helper for nicer state badges (consistent with AttendanceHistoryCompact)
+  const getStateBadgeVariant = (state: string) => {
+    switch (state) {
+      case "completed":
+        return "default";
+      case "scheduled":
+      case "in_progress":
+        return "secondary";
+      case "missed_teacher":
+      case "missed_student":
+        return "destructive";
+      default:
+        return "outline";
+    }
+  };
+
   return (
     <Card className="bg-card border-2 border-border shadow-lg">
       <CardHeader>
@@ -211,7 +221,7 @@ function TeacherScheduleManager() {
               students={students}
               books={books}
               teacherId={selectedTeacherId}
-              referenceDate={startOfWeekDate} // already in scope
+              referenceDate={startOfWeekDate}
             />
           </div>
         </div>
@@ -299,8 +309,10 @@ function TeacherScheduleManager() {
               const teacherDisplayName =
                 teacher?.name || teacher?.email.split("@")[0] || "Unknown";
 
-              // Filter lessons by search term
+              // Filter lessons by search term (within this day)
               const filteredLessons = sched.lessons.filter((lesson) => {
+                if (!searchTerm.trim()) return true;
+
                 const student = students.find(
                   (s: Doc<"users">) => s._id === lesson.studentId,
                 );
@@ -316,92 +328,87 @@ function TeacherScheduleManager() {
                   studentDisplayName.toLowerCase().includes(lowerSearch) ||
                   lesson.time.toLowerCase().includes(lowerSearch) ||
                   bookTitle.toLowerCase().includes(lowerSearch) ||
-                  lesson.state.toLowerCase().includes(lowerSearch)
+                  (lesson.state || "").toLowerCase().includes(lowerSearch)
                 );
               });
 
               return (
-                <>
-                  <div
-                    key={sched._id}
-                    className="mb-8 border rounded-lg overflow-hidden"
-                  >
-                    {/* Header */}
-                    <div className="bg-muted/50 p-4 font-bold text-foreground">
-                      {teacherDisplayName} •{" "}
-                      {format(new Date(sched.date), "EEEE, MMMM d, yyyy")} (
-                      {filteredLessons.length} lessons)
-                    </div>
-
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Student</TableHead>
-                          <TableHead>Time</TableHead>
-                          <TableHead>Duration</TableHead>
-                          <TableHead>Book</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredLessons.map((lesson, idx) => {
-                          const student = students.find(
-                            (s: Doc<"users">) => s._id === lesson.studentId,
-                          );
-                          const studentDisplayName =
-                            student?.name ||
-                            student?.email.split("@")[0] ||
-                            "Unknown";
-                          const book = lesson.bookId
-                            ? books.find(
-                                (b: Doc<"books">) => b._id === lesson.bookId,
-                              )
-                            : null;
-
-                          return (
-                            <TableRow key={idx}>
-                              <TableCell>{studentDisplayName}</TableCell>
-                              <TableCell>{lesson.time}</TableCell>
-                              <TableCell>{lesson.duration} min</TableCell>
-                              <TableCell>{book?.title || "---"}</TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant={
-                                    lesson.state === "completed"
-                                      ? "default"
-                                      : lesson.state === "scheduled"
-                                        ? "secondary"
-                                        : "destructive"
-                                  }
-                                >
-                                  {lesson.state}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={async () => {
-                                    if (confirm("Cancel this lesson?")) {
-                                      await adminDeleteLesson({
-                                        scheduleId: sched._id,
-                                        lessonId: lesson.lessonId,
-                                      });
-                                      toast.success("Lesson cancelled");
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                <div
+                  key={sched._id}
+                  className="mb-8 border rounded-lg overflow-hidden"
+                >
+                  {/* Header */}
+                  <div className="bg-muted/50 p-4 font-bold text-foreground">
+                    {teacherDisplayName} •{" "}
+                    {format(
+                      new Date(sched.date + "T12:00:00"),
+                      "EEEE, MMMM d, yyyy",
+                    )}{" "}
+                    ({filteredLessons.length} lessons)
                   </div>
-                </>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Book</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredLessons.map((lesson) => {
+                        const student = students.find(
+                          (s: Doc<"users">) => s._id === lesson.studentId,
+                        );
+                        const studentDisplayName =
+                          student?.name ||
+                          student?.email.split("@")[0] ||
+                          "Unknown";
+                        const book = lesson.bookId
+                          ? books.find(
+                              (b: Doc<"books">) => b._id === lesson.bookId,
+                            )
+                          : null;
+
+                        return (
+                          <TableRow key={lesson.lessonId}>
+                            <TableCell>{studentDisplayName}</TableCell>
+                            <TableCell>{lesson.time}</TableCell>
+                            <TableCell>{lesson.duration} min</TableCell>
+                            <TableCell>{book?.title || "---"}</TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={getStateBadgeVariant(lesson.state)}
+                              >
+                                {lesson.state}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={async () => {
+                                  if (confirm("Cancel this lesson?")) {
+                                    await adminDeleteLesson({
+                                      scheduleId: sched._id,
+                                      lessonId: lesson.lessonId,
+                                    });
+                                    toast.success("Lesson cancelled");
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               );
             })}
 

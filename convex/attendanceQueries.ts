@@ -48,8 +48,8 @@ export const getStudentLessons = query({
             teacherName: teacher?.name || "Unknown",
             teacherId: schedule.teacherId,
             studentId: args.studentId,
-            status: lesson.status || "scheduled",
-            state: lesson.state || "pending",
+            status: lesson.status || "no_answer_on_time",
+            state: lesson.state || "scheduled",
             markedByName, // ✅ Now returns resolved name
             markedAt: lesson.markedAt,
             notes: lesson.notes,

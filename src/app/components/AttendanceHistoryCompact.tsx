@@ -26,11 +26,11 @@ import { format } from "date-fns";
 import { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
 
-type LessonStatus =
+// These match the `state` union in schema.ts / schedules.ts
+type LessonState =
   | "scheduled"
+  | "in_progress"
   | "completed"
-  | "cancelled"
-  | "teacher_late"
   | "missed_teacher"
   | "missed_student";
 
@@ -41,28 +41,26 @@ interface LessonData {
   duration: number;
   instrument: string;
   teacherName: string;
-  status: string;
-  state: string;
+  status: string; // payment / outcome category (kept for future use)
+  state: string; // the field we actually use for attendance UI
   markedByName?: string;
   markedAt?: number;
   notes?: string;
 }
 
-const STATUS_LABELS: Record<LessonStatus, string> = {
+const STATE_LABELS: Record<LessonState, string> = {
   completed: "Attended ✓",
-  teacher_late: "Teacher Late",
+  in_progress: "In Progress",
   missed_teacher: "Teacher Absent",
   missed_student: "Student Absent",
-  cancelled: "Cancelled",
   scheduled: "Scheduled",
 };
 
-const STATUS_COLORS: Record<LessonStatus, string> = {
+const STATE_COLORS: Record<LessonState, string> = {
   completed: "text-emerald-600 bg-emerald-50 border-emerald-200",
-  teacher_late: "text-orange-600 bg-orange-50 border-orange-200",
+  in_progress: "text-blue-600 bg-blue-50 border-blue-200",
   missed_teacher: "text-red-600 bg-red-50 border-red-200",
   missed_student: "text-amber-600 bg-amber-50 border-amber-200",
-  cancelled: "text-gray-600 bg-gray-50 border-gray-200",
   scheduled: "text-blue-600 bg-blue-50 border-blue-200",
 };
 
@@ -78,7 +76,6 @@ export default function AttendanceHistoryCompact({
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState("attendance");
 
-  // Fetch all lessons for the student
   const lessons = useQuery(api.attendanceQueries.getStudentLessons, {
     studentId,
   }) as LessonData[] | undefined;
@@ -93,42 +90,38 @@ export default function AttendanceHistoryCompact({
     );
   }
 
-  // Filter past lessons
+  // Past lessons = already happened OR no longer in "scheduled" state
   const pastLessons = lessons.filter((lesson) => {
     const lessonDate = new Date(lesson.date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return lessonDate < today || lesson.status !== "scheduled";
+    return lessonDate < today || lesson.state !== "scheduled";
   });
 
-  // Sort by date descending
   const sortedLessons = [...pastLessons].sort((a, b) => {
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
-    return dateB.getTime() - dateA.getTime();
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
-  // Pagination
   const totalPages = Math.ceil(sortedLessons.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentLessons = sortedLessons.slice(startIndex, endIndex);
 
-  // Calculate makeup lessons needed (missed by student)
+  // Make-ups are lessons the student missed
   const makeupNeeded = sortedLessons.filter(
-    (l) => l.status === "missed_student",
+    (l) => l.state === "missed_student",
   ).length;
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
-  const getStatusColor = (status: string): string => {
-    return STATUS_COLORS[status as LessonStatus] || STATUS_COLORS.scheduled;
+  const getStateColor = (state: string): string => {
+    return STATE_COLORS[state as LessonState] || STATE_COLORS.scheduled;
   };
 
-  const getStatusLabel = (status: string): string => {
-    return STATUS_LABELS[status as LessonStatus] || STATUS_LABELS.scheduled;
+  const getStateLabel = (state: string): string => {
+    return STATE_LABELS[state as LessonState] || STATE_LABELS.scheduled;
   };
 
   return (
@@ -161,7 +154,6 @@ export default function AttendanceHistoryCompact({
             <TabsTrigger value="marking">Marking History</TabsTrigger>
           </TabsList>
 
-          {/* Attendance Tab */}
           <TabsContent value="attendance" className="space-y-4">
             {currentLessons.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -202,9 +194,9 @@ export default function AttendanceHistoryCompact({
                             <TableCell>
                               <Badge
                                 variant="outline"
-                                className={getStatusColor(lesson.status)}
+                                className={getStateColor(lesson.state)}
                               >
-                                {getStatusLabel(lesson.status)}
+                                {getStateLabel(lesson.state)}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
@@ -223,7 +215,6 @@ export default function AttendanceHistoryCompact({
                   </Table>
                 </div>
 
-                {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
@@ -268,7 +259,6 @@ export default function AttendanceHistoryCompact({
             )}
           </TabsContent>
 
-          {/* Marking History Tab */}
           <TabsContent value="marking" className="space-y-4">
             {currentLessons.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -310,9 +300,9 @@ export default function AttendanceHistoryCompact({
                             <TableCell>
                               <Badge
                                 variant="outline"
-                                className={getStatusColor(lesson.status)}
+                                className={getStateColor(lesson.state)}
                               >
-                                {getStatusLabel(lesson.status)}
+                                {getStateLabel(lesson.state)}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-sm">
@@ -333,7 +323,6 @@ export default function AttendanceHistoryCompact({
                   </Table>
                 </div>
 
-                {/* Pagination for Marking History */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
@@ -383,7 +372,6 @@ export default function AttendanceHistoryCompact({
   );
 }
 
-// Helper function to calculate end time
 function calculateEndTime(startTime: string, duration: number): string {
   const [hours, minutes] = startTime.split(":").map(Number);
   const totalMinutes = hours * 60 + minutes + duration;

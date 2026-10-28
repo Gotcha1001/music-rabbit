@@ -279,6 +279,7 @@
 //   const submitRating = useMutation(api.lessonRatings.submit);
 //   const updateLesson = useMutation(api.schedules.updateLesson);
 //   const startLessonMutation = useMutation(api.schedules.startLesson);
+//   const studentJoinMutation = useMutation(api.schedules.studentJoin);
 //   const endLessonMutation = useMutation(api.schedules.endLesson);
 //   const markMissedMutation = useMutation(api.schedules.markMissed);
 //   const createLessonMemo = useMutation(api.tutorsMemos.createLessonMemo);
@@ -323,6 +324,30 @@
 //   useEffect(() => {
 //     setStudentContent(studentInfo?.content || "");
 //   }, [studentInfo]);
+
+//   // ✅ Attendance: record that the student is present as soon as they have the
+//   // lesson page open while the lesson is in progress. Without this, joinedAt is
+//   // never set and the cron (checkMissedLessons) marks the student as a no-show.
+//   useEffect(() => {
+//     if (!isStudent || !lesson) return;
+//     const canRecord =
+//       lesson.joinedAt === undefined &&
+//       (lesson.state === "in_progress" ||
+//         (lesson.state === "missed_student" &&
+//           lesson.status === "no_answer_on_time"));
+//     if (!canRecord) return;
+
+//     studentJoinMutation({ scheduleId, lessonId }).catch((err) => {
+//       console.warn("Could not record student join", err);
+//     });
+//   }, [
+//     isStudent,
+//     lesson?.state,
+//     lesson?.status,
+//     lesson?.joinedAt,
+//     scheduleId,
+//     lessonId,
+//   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
 //   if (!lesson || !teacher || !student) {
 //     return (
@@ -437,6 +462,14 @@
 //         });
 //       } catch (err) {
 //         console.warn("Could not save Zoom link", err);
+//       }
+//     }
+//     // ✅ Student clicked "Join Zoom Meeting" -> make sure attendance is recorded
+//     if (isStudent && lesson.joinedAt === undefined) {
+//       try {
+//         await studentJoinMutation({ scheduleId, lessonId });
+//       } catch (err) {
+//         console.warn("Could not record student join", err);
 //       }
 //     }
 //     window.open(zoomLink, "_blank", "noopener,noreferrer");
@@ -1195,6 +1228,7 @@
 //     </div>
 //   );
 // }
+
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
@@ -1794,6 +1828,42 @@ export default function LessonDetail() {
           <DualTimezoneDisplay />
         </motion.div>
 
+        {/* ── Start Zoom – directly under clocks so teacher can start on time ── */}
+        {isTeacher && (
+          <div className="mt-4">
+            {zoomLink ? (
+              <Button
+                onClick={handleStart}
+                size="lg"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14 shadow-lg"
+                disabled={lesson.state !== "scheduled"}
+              >
+                <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
+                {lesson.state === "in_progress"
+                  ? "Zoom Meeting Active"
+                  : "Start Zoom Meeting (at scheduled time)"}
+              </Button>
+            ) : (
+              <p className="text-orange-500 dark:text-orange-400 text-center font-medium py-3 rounded-lg border border-orange-500/30 bg-orange-500/10">
+                No Zoom link set by teacher
+              </p>
+            )}
+          </div>
+        )}
+
+        {!isTeacher && zoomLink && (
+          <div className="mt-4">
+            <Button
+              onClick={handleOpenZoom}
+              size="lg"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14 shadow-lg"
+            >
+              <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
+              Join Zoom Meeting
+            </Button>
+          </div>
+        )}
+
         {/* ── Main card ── */}
         <div className="lesson-main-card mt-6 rounded-xl border-2 overflow-hidden shadow-lg">
           {/* Card header */}
@@ -2177,29 +2247,6 @@ export default function LessonDetail() {
                 </span>
               </div>
             )}
-
-            {/* Zoom button */}
-            <div className="pt-6">
-              {zoomLink ? (
-                <Button
-                  onClick={isTeacher ? handleStart : handleOpenZoom}
-                  size="lg"
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14"
-                  disabled={isTeacher && lesson.state !== "scheduled"}
-                >
-                  <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
-                  {isTeacher
-                    ? lesson.state === "in_progress"
-                      ? "Zoom Meeting Active"
-                      : "Start Zoom Meeting (at scheduled time)"
-                    : "Join Zoom Meeting"}
-                </Button>
-              ) : (
-                <p className="text-orange-500 dark:text-orange-400 text-center font-medium">
-                  No Zoom link set by teacher
-                </p>
-              )}
-            </div>
 
             {/* Notes (teacher) */}
             {isTeacher && (
