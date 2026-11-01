@@ -597,6 +597,42 @@
 //           <DualTimezoneDisplay />
 //         </motion.div>
 
+//         {/* ── Start Zoom – directly under clocks so teacher can start on time ── */}
+//         {isTeacher && (
+//           <div className="mt-4">
+//             {zoomLink ? (
+//               <Button
+//                 onClick={handleStart}
+//                 size="lg"
+//                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14 shadow-lg"
+//                 disabled={lesson.state !== "scheduled"}
+//               >
+//                 <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
+//                 {lesson.state === "in_progress"
+//                   ? "Zoom Meeting Active"
+//                   : "Start Zoom Meeting (at scheduled time)"}
+//               </Button>
+//             ) : (
+//               <p className="text-orange-500 dark:text-orange-400 text-center font-medium py-3 rounded-lg border border-orange-500/30 bg-orange-500/10">
+//                 No Zoom link set by teacher
+//               </p>
+//             )}
+//           </div>
+//         )}
+
+//         {!isTeacher && zoomLink && (
+//           <div className="mt-4">
+//             <Button
+//               onClick={handleOpenZoom}
+//               size="lg"
+//               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14 shadow-lg"
+//             >
+//               <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
+//               Join Zoom Meeting
+//             </Button>
+//           </div>
+//         )}
+
 //         {/* ── Main card ── */}
 //         <div className="lesson-main-card mt-6 rounded-xl border-2 overflow-hidden shadow-lg">
 //           {/* Card header */}
@@ -981,29 +1017,6 @@
 //               </div>
 //             )}
 
-//             {/* Zoom button */}
-//             <div className="pt-6">
-//               {zoomLink ? (
-//                 <Button
-//                   onClick={isTeacher ? handleStart : handleOpenZoom}
-//                   size="lg"
-//                   className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14"
-//                   disabled={isTeacher && lesson.state !== "scheduled"}
-//                 >
-//                   <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
-//                   {isTeacher
-//                     ? lesson.state === "in_progress"
-//                       ? "Zoom Meeting Active"
-//                       : "Start Zoom Meeting (at scheduled time)"
-//                     : "Join Zoom Meeting"}
-//                 </Button>
-//               ) : (
-//                 <p className="text-orange-500 dark:text-orange-400 text-center font-medium">
-//                   No Zoom link set by teacher
-//                 </p>
-//               )}
-//             </div>
-
 //             {/* Notes (teacher) */}
 //             {isTeacher && (
 //               <div className="space-y-3 pt-4 border-t lesson-border-divider">
@@ -1228,7 +1241,6 @@
 //     </div>
 //   );
 // }
-
 "use client";
 
 import { useQuery, useMutation } from "convex/react";
@@ -1241,6 +1253,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Loader2,
   Video,
   Clock,
@@ -1252,6 +1276,8 @@ import {
   MessageSquare,
   Copy,
   Star,
+  ChevronDown,
+  Plus,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
@@ -1522,6 +1548,8 @@ export default function LessonDetail() {
     EndLessonStatus | undefined
   >(undefined);
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
+  const [booksOpen, setBooksOpen] = useState(false); // books toggle: minimized by default
+  const [assignBooksOpen, setAssignBooksOpen] = useState(false); // "Assign Books to Lesson" modal
 
   const studentInfo = useQuery(
     api.tutorsMemos.getGeneralInfoForStudent,
@@ -1821,47 +1849,208 @@ export default function LessonDetail() {
           ← Back
         </Button>
 
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
+        {/* ── Top row: clocks + Zoom (left) • Student information (right) ── */}
+        <div
+          className={`grid gap-4 items-stretch ${
+            isTeacher || studentInfo?.content ? "md:grid-cols-2" : ""
+          }`}
         >
-          <DualTimezoneDisplay />
-        </motion.div>
+          <div className="flex flex-col">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <DualTimezoneDisplay />
+            </motion.div>
 
-        {/* ── Start Zoom – directly under clocks so teacher can start on time ── */}
-        {isTeacher && (
-          <div className="mt-4">
-            {zoomLink ? (
-              <Button
-                onClick={handleStart}
-                size="lg"
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14 shadow-lg"
-                disabled={lesson.state !== "scheduled"}
-              >
-                <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
-                {lesson.state === "in_progress"
-                  ? "Zoom Meeting Active"
-                  : "Start Zoom Meeting (at scheduled time)"}
-              </Button>
-            ) : (
-              <p className="text-orange-500 dark:text-orange-400 text-center font-medium py-3 rounded-lg border border-orange-500/30 bg-orange-500/10">
-                No Zoom link set by teacher
-              </p>
+            {/* ── Start Zoom ── */}
+            {isTeacher && (
+              <div className="mt-4">
+                {zoomLink ? (
+                  <Button
+                    onClick={handleStart}
+                    size="lg"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14 shadow-lg"
+                    disabled={lesson.state !== "scheduled"}
+                  >
+                    <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
+                    {lesson.state === "in_progress"
+                      ? "Zoom Meeting Active"
+                      : "Start Zoom Meeting (at scheduled time)"}
+                  </Button>
+                ) : (
+                  <p className="text-orange-500 dark:text-orange-400 text-center font-medium py-3 rounded-lg border border-orange-500/30 bg-orange-500/10">
+                    No Zoom link set by teacher
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!isTeacher && zoomLink && (
+              <div className="mt-4">
+                <Button
+                  onClick={handleOpenZoom}
+                  size="lg"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14 shadow-lg"
+                >
+                  <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
+                  Join Zoom Meeting
+                </Button>
+              </div>
             )}
           </div>
-        )}
 
-        {!isTeacher && zoomLink && (
-          <div className="mt-4">
-            <Button
-              onClick={handleOpenZoom}
-              size="lg"
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600 text-base sm:text-lg h-12 sm:h-14 shadow-lg"
-            >
-              <Video className="mr-3 h-5 w-5 sm:h-6 sm:w-6" />
-              Join Zoom Meeting
-            </Button>
+          {(isTeacher || studentInfo?.content) && (
+            <div className="lesson-main-card rounded-xl border-2 p-4 space-y-3 h-full">
+              <Label className="lesson-text-label font-semibold">
+                Student Information (By Teachers)
+              </Label>
+              {isTeacher ? (
+                <>
+                  <Textarea
+                    value={studentContent}
+                    onChange={(e) => setStudentContent(e.target.value)}
+                    rows={4}
+                    className="lesson-textarea"
+                    placeholder="Write some basic knowledge of the student, e.g., preferred name, what they're interested in and any family background, etc. This is visible to all teachers."
+                  />
+                  <Button
+                    onClick={handleSaveStudentInfo}
+                    disabled={
+                      studentInfoSaving ||
+                      studentContent === (studentInfo?.content || "")
+                    }
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                  >
+                    {studentInfoSaving ? "Saving..." : "Save Student Info"}
+                  </Button>
+                </>
+              ) : (
+                studentInfo?.content && (
+                  <div className="lesson-section-bg mt-2 p-4 rounded-lg border">
+                    <p className="lesson-text-main whitespace-pre-wrap">
+                      {studentInfo.content}
+                    </p>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Books (collapsed by default) – right below the Zoom button ── */}
+        <Collapsible
+          open={booksOpen}
+          onOpenChange={setBooksOpen}
+          className="lesson-main-card mt-4 rounded-xl border-2 overflow-hidden shadow-lg"
+        >
+          <div className="flex items-center gap-2 pr-4">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex-1 flex items-center justify-between gap-3 p-4 text-left cursor-pointer"
+              >
+                <span className="flex items-center gap-3">
+                  <BookOpen className="h-5 w-5 text-primary dark:text-purple-400 shrink-0" />
+                  <span className="lesson-text-label text-lg font-semibold">
+                    Assigned Books
+                  </span>
+                  <span className="lesson-time-pill px-2 py-0.5 rounded-full text-xs font-semibold">
+                    {
+                      [hasMainBook, hasSubBookA, hasSubBookB].filter(Boolean)
+                        .length
+                    }
+                  </span>
+                </span>
+                <ChevronDown
+                  className={`h-5 w-5 lesson-text-sub transition-transform duration-200 ${
+                    booksOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            </CollapsibleTrigger>
+            {isTeacher && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setAssignBooksOpen(true)}
+                className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-purple-700 dark:hover:bg-purple-600"
+              >
+                <Plus className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Assign Books</span>
+              </Button>
+            )}
           </div>
+          <CollapsibleContent className="px-4 pb-4 sm:px-6 sm:pb-6 border-t lesson-border-divider pt-4">
+            {/* ── Book section ──────────────────────────────────────────────────── */}
+            <div className="space-y-4">
+              {/* Read-only display — all three slots */}
+              {hasAnyBook ? (
+                <div className="space-y-2">
+                  {/* Main book — sourced from lesson.bookId (per-lesson) */}
+                  {hasMainBook && (
+                    <BookRow
+                      slot="main"
+                      title={lesson.bookTitle}
+                      level={lesson.bookLevel}
+                      instrument={lesson.bookInstrument}
+                      driveViewLink={lesson.driveViewLink}
+                    />
+                  )}
+
+                  {/* Sub Book A — sourced from student.subBookAId (per-student) */}
+                  {hasSubBookA && (
+                    <BookRow
+                      slot="subA"
+                      title={subBookA?.title}
+                      level={subBookA?.levelNumber}
+                      instrument={subBookA?.instrument}
+                      driveViewLink={subBookA?.driveViewLink}
+                    />
+                  )}
+
+                  {/* Sub Book B — sourced from student.subBookBId (per-student) */}
+                  {hasSubBookB && (
+                    <BookRow
+                      slot="subB"
+                      title={subBookB?.title}
+                      level={subBookB?.levelNumber}
+                      instrument={subBookB?.instrument}
+                      driveViewLink={subBookB?.driveViewLink}
+                    />
+                  )}
+                </div>
+              ) : (
+                /* Empty state — shown when no slot is assigned */
+                <div className="lesson-book-empty p-8 text-center rounded-lg border-2 border-dashed">
+                  <BookOpen className="h-12 w-12 mx-auto lesson-book-icon opacity-50 mb-3" />
+                  <p className="lesson-book-sub">No books assigned yet</p>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* ── Assign Books to Lesson (modal, teacher only) ── */}
+        {isTeacher && (
+          <Dialog open={assignBooksOpen} onOpenChange={setAssignBooksOpen}>
+            <DialogContent className="lesson-main-card max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Assign Books to Lesson</DialogTitle>
+                <DialogDescription>
+                  Choose the main book and sub books for this lesson.
+                </DialogDescription>
+              </DialogHeader>
+              <BookSelector
+                currentBookId={lesson.bookId}
+                subBookAId={student.subBookAId ?? null}
+                subBookBId={student.subBookBId ?? null}
+                scheduleId={scheduleId}
+                lessonId={lessonId}
+                studentId={lesson.studentId}
+              />
+            </DialogContent>
+          </Dialog>
         )}
 
         {/* ── Main card ── */}
@@ -1902,42 +2091,6 @@ export default function LessonDetail() {
                   {student.instrument && `Learning ${student.instrument}`}
                 </p>
               </div>
-            </div>
-
-            {/* Student info section */}
-            <div className="space-y-3 pt-4 border-t lesson-border-divider">
-              <Label className="lesson-text-label font-semibold">
-                Student Information (By Teachers)
-              </Label>
-              {isTeacher ? (
-                <>
-                  <Textarea
-                    value={studentContent}
-                    onChange={(e) => setStudentContent(e.target.value)}
-                    rows={5}
-                    className="lesson-textarea"
-                    placeholder="Write some basic knowledge of the student, e.g., preferred name, what they're interested in and any family background, etc. This is visible to all teachers."
-                  />
-                  <Button
-                    onClick={handleSaveStudentInfo}
-                    disabled={
-                      studentInfoSaving ||
-                      studentContent === (studentInfo?.content || "")
-                    }
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    {studentInfoSaving ? "Saving..." : "Save Student Info"}
-                  </Button>
-                </>
-              ) : (
-                studentInfo?.content && (
-                  <div className="lesson-section-bg mt-2 p-4 rounded-lg border">
-                    <p className="lesson-text-main whitespace-pre-wrap">
-                      {studentInfo.content}
-                    </p>
-                  </div>
-                )
-              )}
             </div>
 
             {/* Lesson info grid */}
@@ -2119,78 +2272,6 @@ export default function LessonDetail() {
                 )}
               </div>
             )}
-
-            {/* ── Book section ──────────────────────────────────────────────────── */}
-            <div className="space-y-4 pt-4 border-t lesson-border-divider">
-              <Label className="lesson-text-label text-lg font-semibold">
-                Assigned Books
-              </Label>
-
-              {/* Read-only display — all three slots */}
-              {hasAnyBook ? (
-                <div className="space-y-2">
-                  {/* Main book — sourced from lesson.bookId (per-lesson) */}
-                  {hasMainBook && (
-                    <BookRow
-                      slot="main"
-                      title={lesson.bookTitle}
-                      level={lesson.bookLevel}
-                      instrument={lesson.bookInstrument}
-                      driveViewLink={lesson.driveViewLink}
-                    />
-                  )}
-
-                  {/* Sub Book A — sourced from student.subBookAId (per-student) */}
-                  {hasSubBookA && (
-                    <BookRow
-                      slot="subA"
-                      title={subBookA?.title}
-                      level={subBookA?.levelNumber}
-                      instrument={subBookA?.instrument}
-                      driveViewLink={subBookA?.driveViewLink}
-                    />
-                  )}
-
-                  {/* Sub Book B — sourced from student.subBookBId (per-student) */}
-                  {hasSubBookB && (
-                    <BookRow
-                      slot="subB"
-                      title={subBookB?.title}
-                      level={subBookB?.levelNumber}
-                      instrument={subBookB?.instrument}
-                      driveViewLink={subBookB?.driveViewLink}
-                    />
-                  )}
-                </div>
-              ) : (
-                /* Empty state — shown when no slot is assigned */
-                <div className="lesson-book-empty p-8 text-center rounded-lg border-2 border-dashed">
-                  <BookOpen className="h-12 w-12 mx-auto lesson-book-icon opacity-50 mb-3" />
-                  <p className="lesson-book-sub">No books assigned yet</p>
-                </div>
-              )}
-
-              {/*
-               * BookSelector — teacher only.
-               *
-               * Props:
-               *   currentBookId  → lesson's main book (per-lesson, stored in schedules)
-               *   subBookAId     → student's Sub A book (per-student, stored in users)
-               *   subBookBId     → student's Sub B book (per-student, stored in users)
-               *   studentId      → needed so BookSelector can call updateStudentBooks
-               *                    mutation for the sub slots
-               */}
-              {isTeacher && (
-                <BookSelector
-                  currentBookId={lesson.bookId}
-                  subBookAId={student.subBookAId ?? null}
-                  subBookBId={student.subBookBId ?? null}
-                  scheduleId={scheduleId}
-                  lessonId={lessonId}
-                  studentId={lesson.studentId}
-                />
-              )}
-            </div>
 
             {/* Outcome selector (teacher) */}
             {isTeacher &&
